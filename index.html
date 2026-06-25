@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ProfitLoss — Live P&L</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
 <style>
   :root{
     --bg:#0b0f17;--panel:#121826;--panel2:#1a2233;--border:#243049;--text:#e6ebf5;
@@ -61,8 +61,8 @@
 </head>
 <body>
 
-<!-- LOGIN GATE -->
-<div id="auth" style="display:none">
+<!-- LOGIN GATE (visible by default so the page is never blank) -->
+<div id="auth">
   <h1>ProfitLoss</h1>
   <p>Sign in to view your P&amp;L. Access is limited to approved accounts.</p>
   <input id="email" type="email" placeholder="Email" autocomplete="username" />
@@ -177,36 +177,65 @@
 <script>
 const SUPABASE_URL = "https://vdvtrevhqalmjwhjhjug.supabase.co";
 const SUPABASE_KEY = "sb_publishable_LnlevWReed7K8cFk_f_Mxg_UywktQ5_";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
+let sb;
+try {
+  if (!window.supabase) throw new Error("login library blocked or failed to load");
+  // Pass-through lock: Supabase-JS's default navigator.locks-based lock can deadlock and
+  // hang getSession() (symptom: blank/black page). A no-op lock avoids that entirely.
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { lock: (_name, _acquireTimeout, fn) => fn(), persistSession: true, autoRefreshToken: true }
+  });
+} catch (e) {
+  // Never leave a black screen: show the login card with a clear message.
+  const a = $("auth"); if (a) a.style.display = "block";
+  const m = $("authMsg"); if (m) { m.style.color = "#f87171"; m.textContent = "Couldn’t load the login service (network or ad-blocker?). Refresh to retry."; }
+}
 const usd = c => (c/100).toLocaleString("en-US",{style:"currency",currency:"USD"});
 const iso = d => d.toISOString().slice(0,10);
 let chart;
 
 // ---------- AUTH ----------
+let rendered = false;
 function showView(v){ // 'auth' | 'gate' | 'app'
+  rendered = true;
   $("auth").style.display = v==='auth'?'block':'none';
   $("gate").style.display = v==='gate'?'block':'none';
   $("app").style.display  = v==='app'?'block':'none';
 }
-async function route(session){
+// Race any promise against a timeout so a stalled auth/network call can never hang the UI.
+function withTimeout(p, ms, fallback){ return Promise.race([p, new Promise(r=>setTimeout(()=>r(fallback), ms))]); }
+
+async function handleSession(session){
   if(!session){ showView('auth'); return; }
   $("userEmail").textContent = session.user.email;
+  showView('app');                         // show the shell immediately — never sit blank
   let state='none';
-  try{ const { data } = await sb.rpc('my_access_state'); state = data || 'none'; }catch(e){}
+  try{ const r = await withTimeout(sb.rpc('my_access_state'), 6000, {data:null}); state = (r && r.data) || 'none'; }catch(e){}
   if(state==='master' || state==='approved'){
-    showView('app');
-    const isMaster = state==='master';
-    $("adminPanel").style.display = isMaster ? 'block' : 'none';
-    if(isMaster) loadAdmin();
+    $("adminPanel").style.display = state==='master' ? 'block' : 'none';
+    if(state==='master') loadAdmin();
     load();
   } else {
     showView('gate');
     renderGate(state, session.user.email);
   }
 }
-async function refreshSession(){ const { data:{ session } } = await sb.auth.getSession(); route(session); }
-sb.auth.onAuthStateChange((_e, session)=> route(session));
+
+function startAuth(){
+  // Primary driver: the auth-state event delivers the session without the getSession() stall.
+  sb.auth.onAuthStateChange((_e, session)=> handleSession(session));
+  // Watchdog: if nothing has rendered shortly after load, fall back (try a timed getSession, else show login).
+  setTimeout(async ()=>{
+    if(rendered) return;
+    try{ const s = await withTimeout(sb.auth.getSession(), 3000, {data:{session:null}}); handleSession(s.data.session); }
+    catch(e){ showView('auth'); }
+  }, 2500);
+}
+async function refreshSession(){ // used by logout/login paths
+  try{ const s = await withTimeout(sb.auth.getSession(), 3000, {data:{session:null}}); handleSession(s.data.session); }
+  catch(e){ showView('auth'); }
+}
 
 function renderGate(state, email){
   const g=$("gateBody");
@@ -355,7 +384,7 @@ $("refresh").addEventListener("click", load);
 $("f_add").addEventListener("click", addTxn);
 $("f_date").value=iso(new Date());
 applyPreset();
-refreshSession();
+if (sb) startAuth();
 </script>
 </body>
 </html>
