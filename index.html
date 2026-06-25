@@ -28,7 +28,8 @@
   button.ghost{background:transparent}
   .filters{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:20px}
   .filters .spacer{flex:1}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+  .card .value.pct{color:#fbbf24}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
   .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
   .card .value{font-size:24px;font-weight:700;margin-top:6px;letter-spacing:-.02em}
@@ -143,6 +144,8 @@
       <div class="card"><div class="label">Gross sales</div><div id="rev" class="value income">—</div><div class="hint">before processing fees</div></div>
       <div class="card"><div class="label">Expenses</div><div id="exp" class="value expense">—</div><div class="hint">recorded outflows</div></div>
       <div class="card"><div class="label">Net (gross − exp)</div><div id="net" class="value net">—</div><div class="hint">not yet fee-adjusted</div></div>
+      <div class="card"><div class="label">Labor %</div><div id="laborPct" class="value pct">—</div><div class="hint" id="laborHint">labor ÷ sales</div></div>
+      <div class="card"><div class="label">Food cost %</div><div id="foodPct" class="value pct">—</div><div class="hint" id="foodHint">add food costs to enable</div></div>
       <div class="card"><div class="label">Orders</div><div id="cnt" class="value">—</div><div class="hint">in range</div></div>
     </div>
     <div class="panel">
@@ -353,11 +356,27 @@ async function load(){
     const from=$("from").value, to=$("to").value, loc=$("loc").value;
     const rows = await fetchAll(from,to,loc);
 
-    let inc=0, ex=0, orders=0;
-    for(const r of rows){ if(r.type==="income"){inc+=r.amount_cents;orders++;} else ex+=r.amount_cents; }
+    let inc=0, ex=0, orders=0, laborCents=0, foodCents=0;
+    for(const r of rows){
+      if(r.type==="income"){ inc+=r.amount_cents; orders++; }
+      else {
+        ex+=r.amount_cents;
+        const cat=(r.category||'').toLowerCase();
+        if(cat.includes('labor')) laborCents+=r.amount_cents;
+        if(cat.includes('food')||cat.includes('cogs')) foodCents+=r.amount_cents;
+      }
+    }
     $("rev").textContent=usd(inc); $("exp").textContent=usd(ex);
     const netEl=$("net"); const nt=inc-ex; netEl.textContent=usd(nt); netEl.classList.toggle("negative",nt<0);
     $("cnt").textContent=orders.toLocaleString();
+
+    // Labor % and Food cost % — measured against all sales in the current view
+    const lp = inc>0 ? (laborCents/inc*100) : null;
+    $("laborPct").textContent = (lp!=null && laborCents>0) ? lp.toFixed(1)+'%' : '—';
+    $("laborHint").textContent = laborCents>0 ? `${usd(laborCents)} labor ÷ ${usd(inc)} sales` : 'no labor in this range';
+    const fp = inc>0 ? (foodCents/inc*100) : null;
+    $("foodPct").textContent = (fp!=null && foodCents>0) ? fp.toFixed(1)+'%' : '—';
+    $("foodHint").textContent = foodCents>0 ? `${usd(foodCents)} food ÷ ${usd(inc)} sales` : 'add food costs to enable';
 
     const span=Math.round((new Date(to)-new Date(from))/86400000)+1; const daily=span<=92;
     $("chartTitle").textContent=`Gross sales over time (${daily?"daily":"monthly"})`;
