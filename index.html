@@ -74,6 +74,14 @@
   <div id="authMsg" class="sub"></div>
 </div>
 
+<!-- ACCESS GATE (pending / denied / request) -->
+<div id="gate" class="wrap" style="display:none">
+  <div class="panel" style="max-width:520px;margin:8vh auto 0">
+    <div id="gateBody"></div>
+    <div style="margin-top:16px"><button id="gateLogout" class="ghost">Log out</button></div>
+  </div>
+</div>
+
 <!-- APP -->
 <div class="wrap" id="app" style="display:none">
   <header class="top">
@@ -83,6 +91,11 @@
     </div>
     <div class="who"><span id="userEmail"></span><button id="logoutBtn" class="ghost">Log out</button></div>
   </header>
+
+  <div class="panel" id="adminPanel" style="display:none">
+    <h2>Access requests — <span id="adminCount">0</span> pending</h2>
+    <table><thead><tr><th>Email</th><th>Status</th><th class="num">Action</th></tr></thead><tbody id="adminBody"></tbody></table>
+  </div>
 
   <div class="filters">
     <label class="fld">Location
@@ -171,13 +184,57 @@ const iso = d => d.toISOString().slice(0,10);
 let chart;
 
 // ---------- AUTH ----------
-function showAuth(show){ $("auth").style.display = show?"block":"none"; $("app").style.display = show?"none":"block"; }
-async function refreshSession(){
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session){ showAuth(false); $("userEmail").textContent = session.user.email; load(); }
-  else { showAuth(true); }
+function showView(v){ // 'auth' | 'gate' | 'app'
+  $("auth").style.display = v==='auth'?'block':'none';
+  $("gate").style.display = v==='gate'?'block':'none';
+  $("app").style.display  = v==='app'?'block':'none';
 }
-sb.auth.onAuthStateChange((_e, session)=>{ if(session){ showAuth(false); $("userEmail").textContent=session.user.email; load(); } else showAuth(true); });
+async function route(session){
+  if(!session){ showView('auth'); return; }
+  $("userEmail").textContent = session.user.email;
+  let state='none';
+  try{ const { data } = await sb.rpc('my_access_state'); state = data || 'none'; }catch(e){}
+  if(state==='master' || state==='approved'){
+    showView('app');
+    const isMaster = state==='master';
+    $("adminPanel").style.display = isMaster ? 'block' : 'none';
+    if(isMaster) loadAdmin();
+    load();
+  } else {
+    showView('gate');
+    renderGate(state, session.user.email);
+  }
+}
+async function refreshSession(){ const { data:{ session } } = await sb.auth.getSession(); route(session); }
+sb.auth.onAuthStateChange((_e, session)=> route(session));
+
+function renderGate(state, email){
+  const g=$("gateBody");
+  if(state==='pending') g.innerHTML = `<h2 style="margin:0 0 8px">Access pending</h2><p style="color:var(--muted)">Your request for <b>${email}</b> is awaiting approval. You’ll get in as soon as an admin approves it.</p>`;
+  else if(state==='denied') g.innerHTML = `<h2 style="margin:0 0 8px">Access denied</h2><p style="color:var(--muted)">Access for <b>${email}</b> was declined. Contact the owner if this is a mistake.</p>`;
+  else g.innerHTML = `<h2 style="margin:0 0 8px">Request access</h2><p style="color:var(--muted)"><b>${email}</b> isn’t approved yet. Request access and an admin will review it.</p><button class="primary" id="reqBtn">Request access</button>`;
+  const rb=$("reqBtn"); if(rb) rb.addEventListener('click', requestAccess);
+}
+async function requestAccess(){
+  const { data:{ session } } = await sb.auth.getSession();
+  const { error } = await sb.from('app_users').insert({ email: session.user.email, status:'pending' });
+  if(error){ $("gateBody").insertAdjacentHTML('beforeend', `<p style="color:#f87171">${error.message}</p>`); return; }
+  renderGate('pending', session.user.email);
+}
+async function loadAdmin(){
+  const { data, error } = await sb.from('app_users').select('*').order('requested_at',{ascending:false});
+  if(error) return;
+  const rows = data||[];
+  $("adminCount").textContent = rows.filter(u=>u.status==='pending').length;
+  $("adminBody").innerHTML = rows.length ? rows.map(u=>`<tr><td>${u.email}</td><td><span class="pill">${u.status}</span></td><td class="num">${u.status!=='approved'?`<button data-e="${u.email}" data-s="approved" class="ghost act">Approve</button> `:''}${u.status!=='denied'?`<button data-e="${u.email}" data-s="denied" class="ghost act">Deny</button>`:''}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">No requests yet</td></tr>`;
+  document.querySelectorAll('.act').forEach(b=>b.addEventListener('click', ()=>decide(b.dataset.e, b.dataset.s)));
+}
+async function decide(email, status){
+  const { data:{ session } } = await sb.auth.getSession();
+  await sb.from('app_users').update({ status, decided_at:new Date().toISOString(), decided_by: session.user.email }).eq('email', email);
+  loadAdmin();
+}
+$("gateLogout").addEventListener("click", ()=> sb.auth.signOut());
 
 async function login(){
   const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Signing in…";
