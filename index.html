@@ -102,13 +102,13 @@
   <div class="panel" id="geniusPanel">
     <h2>Import CSV — Genius &amp; HoneyBook</h2>
     <div class="entry-row">
-      <label class="fld">Location (Genius)
+      <label class="fld">Location
         <select id="g_loc"><option>Memphis</option><option>Nashville</option><option>Franklin</option><option>Other</option></select>
       </label>
       <input type="file" id="g_files" accept=".csv" multiple />
       <button class="primary" id="g_import" disabled>Import</button>
     </div>
-    <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6">Drop Genius (Transactions / Labor Summary) and/or HoneyBook payment exports. Genius → daily sales &amp; labor for the chosen location. HoneyBook → catering payments at net of fees, company-wide. Re-importing the same period safely overwrites it.</div>
+    <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6">Drop Genius (Transactions / Labor Summary) and/or HoneyBook payment exports. Genius → daily sales &amp; labor. HoneyBook → catering payments at net of fees. Both tagged to the chosen location. Re-importing the same period safely overwrites it.</div>
   </div>
 
   <div class="filters">
@@ -278,11 +278,12 @@ async function requestAccess(){
   renderGate('pending', session.user.email);
 }
 async function loadAdmin(){
-  const { data, error } = await sb.from('app_users').select('*').order('requested_at',{ascending:false});
+  // Show only OPEN (pending) requests — approving or denying clears them from the list.
+  const { data, error } = await sb.from('app_users').select('*').eq('status','pending').order('requested_at',{ascending:false});
   if(error) return;
   const rows = data||[];
-  $("adminCount").textContent = rows.filter(u=>u.status==='pending').length;
-  $("adminBody").innerHTML = rows.length ? rows.map(u=>`<tr><td>${u.email}</td><td><span class="pill">${u.status}</span></td><td class="num">${u.status!=='approved'?`<button data-e="${u.email}" data-s="approved" class="ghost act">Approve</button> `:''}${u.status!=='denied'?`<button data-e="${u.email}" data-s="denied" class="ghost act">Deny</button>`:''}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">No requests yet</td></tr>`;
+  $("adminCount").textContent = rows.length;
+  $("adminBody").innerHTML = rows.length ? rows.map(u=>`<tr><td>${u.email}</td><td><span class="pill">pending</span></td><td class="num"><button data-e="${u.email}" data-s="approved" class="ghost act">Approve</button> <button data-e="${u.email}" data-s="denied" class="ghost act">Deny</button></td></tr>`).join('') : `<tr><td colspan="3" class="empty">No pending requests</td></tr>`;
   document.querySelectorAll('.act').forEach(b=>b.addEventListener('click', ()=>decide(b.dataset.e, b.dataset.s)));
 }
 async function decide(email, status){
@@ -496,9 +497,9 @@ async function importGenius(){
       amount_cents:Math.round(Math.abs(v)*100), txn_date:d, location:loc, status:'completed',
       external_id:`genius-labor:${loc}:${d}`, memo:`Genius labor — ${loc}`});
   }
-  for(const p of (geniusParsed.payments||[])){  // HoneyBook catering — company-wide (no location), net of fees
+  for(const p of (geniusParsed.payments||[])){  // HoneyBook catering — net of fees, tagged to the chosen location
     rows.push({source:'honeybook', type:p.amount<0?'expense':'income', category:p.amount<0?'Refunds':'Catering',
-      amount_cents:Math.round(Math.abs(p.amount)*100), txn_date:p.date, location:null, status:'completed',
+      amount_cents:Math.round(Math.abs(p.amount)*100), txn_date:p.date, location:loc, status:'completed',
       external_id:p.externalId, memo:p.memo});
   }
   $("g_import").disabled=true;
