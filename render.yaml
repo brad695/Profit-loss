@@ -1,0 +1,20 @@
+# Render Blueprint — serves the static dashboard (index.html) as a Static Site.
+# The financial data itself is protected by Supabase Auth + RLS, so the static
+# files are safe to host publicly; only a logged-in, allow-listed account sees data.
+services:
+  - type: web
+    name: profitloss-dashboard
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
