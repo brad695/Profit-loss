@@ -6,6 +6,7 @@
 <title>ProfitLoss — Live P&L</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
     --bg:#0b0f17;--panel:#121826;--panel2:#1a2233;--border:#243049;--text:#e6ebf5;
@@ -95,6 +96,18 @@
   <div class="panel" id="adminPanel" style="display:none">
     <h2>Access requests — <span id="adminCount">0</span> pending</h2>
     <table><thead><tr><th>Email</th><th>Status</th><th class="num">Action</th></tr></thead><tbody id="adminBody"></tbody></table>
+  </div>
+
+  <div class="panel" id="geniusPanel">
+    <h2>Import Genius CSV — sales &amp; labor</h2>
+    <div class="entry-row">
+      <label class="fld">Location
+        <select id="g_loc"><option>Memphis</option><option>Nashville</option><option>Franklin</option><option>Other</option></select>
+      </label>
+      <input type="file" id="g_files" accept=".csv" multiple />
+      <button class="primary" id="g_import" disabled>Import</button>
+    </div>
+    <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6">Drop your Genius Transactions and/or Labor Summary export(s). Sales become daily income, labor becomes daily expense. Re-importing the same period safely overwrites it.</div>
   </div>
 
   <div class="filters">
@@ -376,6 +389,73 @@ async function addTxn(){
   msg.style.color="#34d399"; msg.textContent="Saved.";
   $("f_cat").value="";$("f_amt").value="";$("f_memo").value=""; load();
 }
+
+// ---------- GENIUS CSV IMPORT ----------
+const G_MONTHS={January:1,February:2,March:3,April:4,May:5,June:6,July:7,August:8,September:9,October:10,November:11,December:12};
+function gMoney(s){ s=(s||'').toString().replace(/[$,]/g,'').trim(); const neg=/^\(.*\)$/.test(s); s=s.replace(/[()]/g,''); const v=parseFloat(s); return isNaN(v)?0:(neg?-v:v); }
+function gTxnDate(s){ const m=/(\d{2})\/(\d{2})\/(\d{2})/.exec(s||''); return m?`20${m[3]}-${m[1]}-${m[2]}`:null; }
+function gLaborDate(s){ const m=/^\w+,\s*(\w+)\s+(\d{1,2}),\s*(\d{4})/.exec((s||'').trim()); return (m&&G_MONTHS[m[1]])?`${m[3]}-${String(G_MONTHS[m[1]]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`:null; }
+function processGenius(rows){
+  const hi = rows.findIndex(r=>r.includes('Ticket #') || r.includes('Date/Time'));
+  if(hi<0) return null;
+  const hdr = rows[hi].map(x=>(x||'').trim());
+  const data = rows.slice(hi+1);
+  const byDay={};
+  if(hdr.includes('Ticket #')){ // SALES
+    const iAmt=hdr.indexOf('Amount'), iStatus=hdr.indexOf('Status'), iDate=hdr.indexOf('Date');
+    for(const r of data){ if(!r||r.length<=iAmt) continue; if((r[iStatus]||'').trim()==='Void') continue; const d=gTxnDate(r[iDate]); if(!d) continue; byDay[d]=(byDay[d]||0)+gMoney(r[iAmt]); }
+    return {type:'sales', byDay};
+  }
+  if(hdr.includes('Date/Time') && hdr.includes('Labor Cost')){ // LABOR
+    const iCost=hdr.indexOf('Labor Cost'), iDate=hdr.indexOf('Date/Time');
+    for(const r of data){ if(!r) continue; const d=gLaborDate(r[iDate]); if(!d) continue; byDay[d]=gMoney(r[iCost]); }
+    return {type:'labor', byDay};
+  }
+  return null;
+}
+let geniusParsed=null;
+async function onGeniusFiles(){
+  const files=[...$("g_files").files]; const acc={sales:{},labor:{}}; const notes=[];
+  for(const f of files){
+    try{
+      const text=await f.text();
+      const rows=Papa.parse(text,{skipEmptyLines:true}).data;
+      const res=processGenius(rows);
+      if(!res){ notes.push(`⚠️ ${f.name}: unrecognized format`); continue; }
+      Object.assign(acc[res.type], res.byDay);
+      const days=Object.keys(res.byDay).length, tot=Object.values(res.byDay).reduce((a,b)=>a+b,0);
+      notes.push(`✓ ${f.name}: ${res.type} — ${days} days, $${tot.toLocaleString('en-US',{minimumFractionDigits:2})}`);
+    }catch(e){ notes.push(`⚠️ ${f.name}: ${e.message}`); }
+  }
+  geniusParsed=acc;
+  $("g_preview").innerHTML=notes.join('<br>')||'No files selected.';
+  $("g_import").disabled = !(Object.keys(acc.sales).length||Object.keys(acc.labor).length);
+}
+async function importGenius(){
+  if(!geniusParsed) return;
+  const loc=$("g_loc").value; const rows=[];
+  for(const [d,v] of Object.entries(geniusParsed.sales)){
+    rows.push({source:'genius', type:v<0?'expense':'income', category:v<0?'Sales adjustments':'POS Sales',
+      amount_cents:Math.round(Math.abs(v)*100), txn_date:d, location:loc, status:'completed',
+      external_id:`genius-sales:${loc}:${d}`, memo:`Genius POS sales — ${loc}`});
+  }
+  for(const [d,v] of Object.entries(geniusParsed.labor)){
+    rows.push({source:'genius', type:'expense', category:'Labor',
+      amount_cents:Math.round(Math.abs(v)*100), txn_date:d, location:loc, status:'completed',
+      external_id:`genius-labor:${loc}:${d}`, memo:`Genius labor — ${loc}`});
+  }
+  $("g_import").disabled=true;
+  $("g_preview").innerHTML += `<br>Importing ${rows.length} day-rows for ${loc}…`;
+  for(let i=0;i<rows.length;i+=500){
+    const { error } = await sb.from('transactions').upsert(rows.slice(i,i+500), {onConflict:'source,external_id'});
+    if(error){ $("g_preview").innerHTML += `<br><span style="color:#f87171">Error: ${error.message}</span>`; return; }
+  }
+  $("g_preview").innerHTML += `<br><span style="color:#34d399">Imported ${rows.length} day-rows.</span>`;
+  geniusParsed=null; $("g_files").value='';
+  load();
+}
+$("g_files").addEventListener('change', onGeniusFiles);
+$("g_import").addEventListener('click', importGenius);
 
 $("preset").addEventListener("change", ()=>{ applyPreset(); load(); });
 ["from","to"].forEach(id=>$(id).addEventListener("change", ()=>{ $("preset").value="custom"; load(); }));
