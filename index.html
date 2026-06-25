@@ -219,12 +219,23 @@ function showView(v){ // 'auth' | 'gate' | 'app'
 // Race any promise against a timeout so a stalled auth/network call can never hang the UI.
 function withTimeout(p, ms, fallback){ return Promise.race([p, new Promise(r=>setTimeout(()=>r(fallback), ms))]); }
 
+const MASTER_EMAIL = 'bbearo@gmail.com';
+// Decide access robustly. Master is determined by email so an RPC hiccup can never gate it.
+// Everyone else retries the RPC a few times to beat the token-attach race that can transiently
+// return 'none' right after login (which previously showed a false "Request access" screen).
+async function accessState(session){
+  if((session.user.email||'').toLowerCase() === MASTER_EMAIL) return 'master';
+  for(let i=0;i<4;i++){
+    try{ const r = await withTimeout(sb.rpc('my_access_state'), 5000, {data:null}); if(r && r.data) return r.data; }catch(e){}
+    await new Promise(res=>setTimeout(res, 500));
+  }
+  return 'none';
+}
 async function handleSession(session){
   if(!session){ showView('auth'); return; }
   $("userEmail").textContent = session.user.email;
   showView('app');                         // show the shell immediately — never sit blank
-  let state='none';
-  try{ const r = await withTimeout(sb.rpc('my_access_state'), 6000, {data:null}); state = (r && r.data) || 'none'; }catch(e){}
+  const state = await accessState(session);
   if(state==='master' || state==='approved'){
     $("adminPanel").style.display = state==='master' ? 'block' : 'none';
     if(state==='master') loadAdmin();
