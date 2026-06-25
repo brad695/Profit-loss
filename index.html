@@ -100,15 +100,15 @@
   </div>
 
   <div class="panel" id="geniusPanel">
-    <h2>Import Genius CSV — sales &amp; labor</h2>
+    <h2>Import CSV — Genius &amp; HoneyBook</h2>
     <div class="entry-row">
-      <label class="fld">Location
+      <label class="fld">Location (Genius)
         <select id="g_loc"><option>Memphis</option><option>Nashville</option><option>Franklin</option><option>Other</option></select>
       </label>
       <input type="file" id="g_files" accept=".csv" multiple />
       <button class="primary" id="g_import" disabled>Import</button>
     </div>
-    <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6">Drop your Genius Transactions and/or Labor Summary export(s). Sales become daily income, labor becomes daily expense. Re-importing the same period safely overwrites it.</div>
+    <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6">Drop Genius (Transactions / Labor Summary) and/or HoneyBook payment exports. Genius → daily sales &amp; labor for the chosen location. HoneyBook → catering payments at net of fees, company-wide. Re-importing the same period safely overwrites it.</div>
   </div>
 
   <div class="filters">
@@ -425,8 +425,10 @@ const G_MONTHS={January:1,February:2,March:3,April:4,May:5,June:6,July:7,August:
 function gMoney(s){ s=(s||'').toString().replace(/[$,]/g,'').trim(); const neg=/^\(.*\)$/.test(s); s=s.replace(/[()]/g,''); const v=parseFloat(s); return isNaN(v)?0:(neg?-v:v); }
 function gTxnDate(s){ const m=/(\d{2})\/(\d{2})\/(\d{2})/.exec(s||''); return m?`20${m[3]}-${m[1]}-${m[2]}`:null; }
 function gLaborDate(s){ const m=/^\w+,\s*(\w+)\s+(\d{1,2}),\s*(\d{4})/.exec((s||'').trim()); return (m&&G_MONTHS[m[1]])?`${m[3]}-${String(G_MONTHS[m[1]]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`:null; }
+const G_MON3={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+function gHbDate(s){ const m=/^(\w{3})\w*\s+(\d{1,2}),\s*(\d{4})/.exec((s||'').trim()); return (m&&G_MON3[m[1]])?`${m[3]}-${String(G_MON3[m[1]]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`:null; }
 function processGenius(rows){
-  const hi = rows.findIndex(r=>r.includes('Ticket #') || r.includes('Date/Time'));
+  const hi = rows.findIndex(r=>r.includes('Ticket #') || r.includes('Date/Time') || r.includes('NET_AMOUNT'));
   if(hi<0) return null;
   const hdr = rows[hi].map(x=>(x||'').trim());
   const data = rows.slice(hi+1);
@@ -441,25 +443,45 @@ function processGenius(rows){
     for(const r of data){ if(!r) continue; const d=gLaborDate(r[iDate]); if(!d) continue; byDay[d]=gMoney(r[iCost]); }
     return {type:'labor', byDay};
   }
+  if(hdr.includes('NET_AMOUNT')){ // HONEYBOOK payments
+    const c=n=>hdr.indexOf(n);
+    const iStat=c('PAYMENT_STATUS'), iNet=c('NET_AMOUNT'), iRef=c('REFUNDED_AMOUNT'), iDate=c('TRANSACTION_DATE'), iInv=c('INVOICE'), iProj=c('PROJECT_NAME'), iClient=c('CLIENT_INFO');
+    const payments=[];
+    for(const r of data){
+      if(!r||r.length<=iNet) continue;
+      if((r[iStat]||'').trim()!=='Paid') continue;
+      const d=gHbDate(r[iDate]); if(!d) continue;
+      const net=gMoney(r[iNet]) - gMoney(r[iRef]);
+      const client=(r[iClient]||'').split('(')[0].trim();
+      payments.push({date:d, amount:net, externalId:'honeybook:'+(r[iInv]||'').trim(), memo:`${(r[iProj]||'Catering').trim()}${client?(' — '+client):''}`});
+    }
+    return {type:'honeybook', payments};
+  }
   return null;
 }
 let geniusParsed=null;
 async function onGeniusFiles(){
-  const files=[...$("g_files").files]; const acc={sales:{},labor:{}}; const notes=[];
+  const files=[...$("g_files").files]; const acc={sales:{},labor:{},payments:[]}; const notes=[];
   for(const f of files){
     try{
       const text=await f.text();
       const rows=Papa.parse(text,{skipEmptyLines:true}).data;
       const res=processGenius(rows);
       if(!res){ notes.push(`⚠️ ${f.name}: unrecognized format`); continue; }
-      Object.assign(acc[res.type], res.byDay);
-      const days=Object.keys(res.byDay).length, tot=Object.values(res.byDay).reduce((a,b)=>a+b,0);
-      notes.push(`✓ ${f.name}: ${res.type} — ${days} days, $${tot.toLocaleString('en-US',{minimumFractionDigits:2})}`);
+      if(res.type==='honeybook'){
+        acc.payments=acc.payments.concat(res.payments);
+        const tot=res.payments.reduce((a,p)=>a+p.amount,0);
+        notes.push(`✓ ${f.name}: HoneyBook — ${res.payments.length} payments, $${tot.toLocaleString('en-US',{minimumFractionDigits:2})} net`);
+      } else {
+        Object.assign(acc[res.type], res.byDay);
+        const days=Object.keys(res.byDay).length, tot=Object.values(res.byDay).reduce((a,b)=>a+b,0);
+        notes.push(`✓ ${f.name}: ${res.type} — ${days} days, $${tot.toLocaleString('en-US',{minimumFractionDigits:2})}`);
+      }
     }catch(e){ notes.push(`⚠️ ${f.name}: ${e.message}`); }
   }
   geniusParsed=acc;
   $("g_preview").innerHTML=notes.join('<br>')||'No files selected.';
-  $("g_import").disabled = !(Object.keys(acc.sales).length||Object.keys(acc.labor).length);
+  $("g_import").disabled = !(Object.keys(acc.sales).length||Object.keys(acc.labor).length||acc.payments.length);
 }
 async function importGenius(){
   if(!geniusParsed) return;
@@ -473,6 +495,11 @@ async function importGenius(){
     rows.push({source:'genius', type:'expense', category:'Labor',
       amount_cents:Math.round(Math.abs(v)*100), txn_date:d, location:loc, status:'completed',
       external_id:`genius-labor:${loc}:${d}`, memo:`Genius labor — ${loc}`});
+  }
+  for(const p of (geniusParsed.payments||[])){  // HoneyBook catering — company-wide (no location), net of fees
+    rows.push({source:'honeybook', type:p.amount<0?'expense':'income', category:p.amount<0?'Refunds':'Catering',
+      amount_cents:Math.round(Math.abs(p.amount)*100), txn_date:p.date, location:null, status:'completed',
+      external_id:p.externalId, memo:p.memo});
   }
   $("g_import").disabled=true;
   $("g_preview").innerHTML += `<br>Importing ${rows.length} day-rows for ${loc}…`;
