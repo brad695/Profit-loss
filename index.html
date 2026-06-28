@@ -149,6 +149,8 @@
       <a data-scroll="detailPanel"><span class="dot"></span> Detail &amp; trends</a>
       <a data-scroll="importPanel"><span class="dot"></span> Import data</a>
       <a data-scroll="entryPanel"><span class="dot"></span> Add entry</a>
+      <a data-scroll="foodCostPanel"><span class="dot"></span> Food Cost</a>
+      <a data-scroll="laborCostPanel"><span class="dot"></span> Labor Cost</a>
       <a data-scroll="adminPanel" id="navAdmin" style="display:none"><span class="dot"></span> Access requests</a>
     </nav>
     <div class="nav-group">Locations</div>
@@ -284,6 +286,18 @@
         </div>
         <div id="f_msg" class="sub" style="margin-top:10px;font-size:12px"></div>
       </div>
+
+      <!-- FOOD COST -->
+      <div class="panel" id="foodCostPanel">
+        <h2>Food Cost</h2>
+        <div class="empty">Food cost breakdown coming soon.</div>
+      </div>
+
+      <!-- LABOR COST -->
+      <div class="panel" id="laborCostPanel">
+        <h2>Labor Cost</h2>
+        <div class="empty">Labor cost breakdown coming soon.</div>
+      </div>
     </div>
     <div id="loading" class="loading">Loading…</div>
   </main>
@@ -416,7 +430,8 @@ function applyPreset(){
 }
 function periodWindows(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
-  const weekStart=new Date(y,m,d-now.getDay());      // Sunday of current week
+  const dow=(now.getDay()+6)%7;                       // 0=Mon … 6=Sun
+  const weekStart=new Date(y,m,d-dow);               // Monday 00:00 of current week (week resets Sun night)
   const monthStart=new Date(y,m,1);
   const yearStart=new Date(y,0,1);
   return { wtd:[weekStart, now], mtd:[monthStart, now], ytd:[yearStart, now] };
