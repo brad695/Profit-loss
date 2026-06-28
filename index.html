@@ -9,63 +9,118 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
-    --bg:#0b0f17;--panel:#121826;--panel2:#1a2233;--border:#243049;--text:#e6ebf5;
-    --muted:#8a96ad;--income:#34d399;--expense:#f87171;--net:#60a5fa;--accent:#818cf8;
+    --bg:#f4f5f7;--sidebar:#ffffff;--card:#ffffff;--hero:#f1efe6;
+    --ink:#1a1d23;--muted:#6b7280;--faint:#9aa1ad;--border:#e7e9ee;--border2:#eef0f4;
+    --income:#16a34a;--expense:#dc2626;--net:#2563eb;--accent:#111827;
+    --good:#16a34a;--bad:#dc2626;--amber:#d97706;
     font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1120px;margin:0 auto;padding:28px 22px 64px}
-  header.top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
-  header.top h1{font-size:22px;margin:0;letter-spacing:-.01em}
-  header.top .sub{color:var(--muted);font-size:13px;margin-top:4px;max-width:640px}
-  .who{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center}
-  label.fld{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-  select,input,button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px}
-  button{cursor:pointer}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#0b0f17;font-weight:600}
-  button.primary:hover{filter:brightness(1.08)}
-  button.ghost{background:transparent}
-  .filters{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:20px}
-  .filters .spacer{flex:1}
-  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
-  .card .value.pct{color:#fbbf24}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
-  .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-  .card .value{font-size:24px;font-weight:700;margin-top:6px;letter-spacing:-.02em}
-  .card .value.income{color:var(--income)} .card .value.expense{color:var(--expense)}
-  .card .value.net{color:var(--net)} .card .value.net.negative{color:var(--expense)}
-  .card .hint{color:var(--muted);font-size:11px;margin-top:4px}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px}
-  .panel h2{font-size:14px;margin:0 0 14px;font-weight:600}
+  body{margin:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  button,select,input{font-family:inherit}
+  a{color:inherit}
+
+  /* ---------- AUTH / GATE (centered light cards) ---------- */
+  #auth{max-width:380px;margin:10vh auto 0;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 12px 40px rgba(20,25,40,.06)}
+  #auth h1{font-size:22px;margin:0 0 4px} #auth p{color:var(--muted);font-size:13px;margin:0 0 18px}
+  #auth input{width:100%;margin-bottom:10px;background:#fafbfc;border:1px solid var(--border);border-radius:10px;padding:11px 12px;font-size:14px;color:var(--ink)}
+  #auth .row{display:flex;gap:8px} #auth .row button{flex:1}
+  #authMsg{font-size:12px;margin-top:12px;min-height:16px}
+  button.primary{background:var(--accent);border:1px solid var(--accent);color:#fff;font-weight:600;border-radius:10px;padding:11px 14px;font-size:14px;cursor:pointer}
+  button.primary:hover{filter:brightness(1.15)}
+  button.ghost{background:transparent;border:1px solid var(--border);color:var(--ink);border-radius:10px;padding:11px 14px;font-size:14px;cursor:pointer}
+  button.ghost:hover{background:#f3f4f6}
+  #gate .panel{max-width:520px;margin:10vh auto 0;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px}
+
+  /* ---------- LAYOUT ---------- */
+  .layout{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+  .sidebar{background:var(--sidebar);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:8px;position:sticky;top:0;height:100vh}
+  .brand{font-size:19px;font-weight:700;letter-spacing:-.02em;padding:4px 8px 16px}
+  .brand span{color:var(--income)}
+  .nav-group{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:14px 8px 6px;font-weight:600}
+  .nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:14px;color:var(--ink);text-decoration:none;cursor:pointer;border:1px solid transparent}
+  .nav a:hover{background:#f5f6f8}
+  .nav a.active{background:#f0f1f4;border-color:var(--border);font-weight:600}
+  .nav a .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+  .nav a.active .dot{background:var(--income)}
+  .side-foot{margin-top:auto;border-top:1px solid var(--border);padding-top:14px;font-size:12px;color:var(--muted)}
+  .side-foot .email{display:block;font-weight:600;color:var(--ink);margin-bottom:8px;word-break:break-all}
+
+  .main{padding:24px 30px 60px;max-width:1280px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .topbar h1{font-size:22px;margin:0;letter-spacing:-.02em}
+  .topbar .sub{color:var(--muted);font-size:12.5px;margin-top:3px;max-width:680px}
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .seg{display:inline-flex;background:#eef0f3;border:1px solid var(--border);border-radius:10px;padding:3px}
+  .seg button{background:transparent;border:0;padding:7px 12px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;font-weight:500}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(20,25,40,.08);font-weight:600}
+  .cmp-label{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+
+  /* ---------- HERO (chart + gauge) ---------- */
+  .hero{background:var(--hero);border:1px solid #e7e3d6;border-radius:18px;padding:20px 22px;margin:18px 0 22px;display:grid;grid-template-columns:1fr 230px;gap:24px;align-items:center}
+  .hero h2{font-size:14px;margin:0 0 10px;font-weight:600}
+  .hero .chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .hero canvas{max-height:210px}
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .gauge{position:relative;width:150px;height:150px;border-radius:50%;display:grid;place-items:center}
+  .gauge::before{content:'';position:absolute;width:108px;height:108px;border-radius:50%;background:var(--hero)}
+  .gauge .g-val{position:relative;font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .gauge .g-cap{position:relative;font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+  .gauge-sub{font-size:12px;color:var(--muted);text-align:center}
+
+  /* ---------- PERIOD COLUMNS ---------- */
+  .periods{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px}
+  .pcol{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 16px 18px;display:flex;flex-direction:column;gap:10px}
+  .pcol-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px}
+  .pcol-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .pcol-sub{font-size:11px;color:var(--faint)}
+  .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mini{background:#fafbfc;border:1px solid var(--border2);border-radius:11px;padding:10px 12px}
+  .mini .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .mini .v{font-size:18px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
+  .mini .v.income{color:var(--income)} .mini .v.net{color:var(--net)} .mini .v.net.neg{color:var(--expense)}
+  .tile{border:1px solid var(--border2);border-radius:12px;padding:12px 13px;background:#fff}
+  .tile.hero-tile{border-color:#dfe2ea;background:#fafbfd}
+  .tile.cogs{border-color:#d9dee9;background:#f6f8fc}
+  .tile-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .tile .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+  .tile .v{font-size:23px;font-weight:800;margin-top:5px;letter-spacing:-.02em}
+  .tile .meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+  .tile .pct{font-size:11.5px;color:var(--muted)}
+  .tile .hint{font-size:10.5px;color:var(--faint);margin-top:1px}
+  .delta{font-size:11.5px;font-weight:700;white-space:nowrap}
+  .delta.good{color:var(--good)} .delta.bad{color:var(--bad)} .delta.flat{color:var(--faint)}
+
+  /* ---------- PANELS / TABLES ---------- */
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:20px}
+  .panel h2{font-size:14px;margin:0 0 14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px}
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border2)}
   th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   tr:last-child td{border-bottom:none}
   .pos{color:var(--income)} .neg{color:var(--expense)}
-  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#f1f2f5;border:1px solid var(--border);color:var(--muted)}
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media(max-width:820px){.grid-2{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
   .empty,.loading{color:var(--muted);font-size:13px;text-align:center;padding:24px 0}
-  .err{color:var(--expense);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);padding:14px;border-radius:10px;font-size:13px}
+  .err{color:var(--expense);background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);padding:14px;border-radius:12px;font-size:13px;margin-bottom:18px}
   .entry-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .entry-row .memo{flex:1 1 180px;min-width:140px}
-  .foot{color:var(--muted);font-size:12px;margin-top:28px;text-align:center}
+  .entry-row select,.entry-row input,.filters select,.filters input{background:#fafbfc;color:var(--ink);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px}
+  .filters{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  label.fld{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .foot{color:var(--faint);font-size:12px;margin-top:8px}
   canvas{max-height:300px}
-  /* auth */
-  #auth{max-width:360px;margin:8vh auto 0;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:26px}
-  #auth h1{font-size:20px;margin:0 0 4px} #auth p{color:var(--muted);font-size:13px;margin:0 0 18px}
-  #auth input{width:100%;margin-bottom:10px}
-  #auth .row{display:flex;gap:8px} #auth .row button{flex:1}
-  #authMsg{font-size:12px;margin-top:12px;min-height:16px}
+
+  @media(max-width:1000px){.periods{grid-template-columns:1fr}.hero{grid-template-columns:1fr}.grid-2{grid-template-columns:1fr}}
+  @media(max-width:760px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}.side-foot{margin:0;border:0;padding:0}.nav-group{display:none}}
 </style>
 </head>
 <body>
 
 <!-- LOGIN GATE (visible by default so the page is never blank) -->
 <div id="auth">
-  <h1>ProfitLoss</h1>
+  <h1>Profit<span>Loss</span></h1>
   <p>Sign in to view your P&amp;L. Access is limited to approved accounts.</p>
   <input id="email" type="email" placeholder="Email" autocomplete="username" />
   <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
@@ -73,106 +128,155 @@
     <button id="loginBtn" class="primary">Log in</button>
     <button id="signupBtn" class="ghost">Create account</button>
   </div>
-  <div id="authMsg" class="sub"></div>
+  <div id="authMsg"></div>
 </div>
 
 <!-- ACCESS GATE (pending / denied / request) -->
-<div id="gate" class="wrap" style="display:none">
-  <div class="panel" style="max-width:520px;margin:8vh auto 0">
+<div id="gate" style="display:none">
+  <div class="panel">
     <div id="gateBody"></div>
     <div style="margin-top:16px"><button id="gateLogout" class="ghost">Log out</button></div>
   </div>
 </div>
 
 <!-- APP -->
-<div class="wrap" id="app" style="display:none">
-  <header class="top">
-    <div>
-      <h1>ProfitLoss</h1>
-      <div class="sub">Live P&amp;L across every source · TicketSpice figures are <b>gross sales</b> (before processing fees) and exclude canceled / pending / abandoned orders.</div>
+<div class="layout" id="app" style="display:none">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">Profit<span>Loss</span></div>
+    <nav class="nav" id="navMain">
+      <a data-scroll="top" class="active"><span class="dot"></span> Dashboard</a>
+      <a data-scroll="detailPanel"><span class="dot"></span> Detail &amp; trends</a>
+      <a data-scroll="importPanel"><span class="dot"></span> Import data</a>
+      <a data-scroll="entryPanel"><span class="dot"></span> Add entry</a>
+      <a data-scroll="adminPanel" id="navAdmin" style="display:none"><span class="dot"></span> Access requests</a>
+    </nav>
+    <div class="nav-group">Locations</div>
+    <nav class="nav" id="navLoc">
+      <a data-loc="all" class="active"><span class="dot"></span> All locations</a>
+      <a data-loc="Memphis"><span class="dot"></span> Memphis</a>
+      <a data-loc="Nashville"><span class="dot"></span> Nashville</a>
+      <a data-loc="Franklin"><span class="dot"></span> Franklin</a>
+      <a data-loc="Other"><span class="dot"></span> Other</a>
+    </nav>
+    <div class="side-foot">
+      <span class="email" id="userEmail"></span>
+      <button id="logoutBtn" class="ghost" style="width:100%">Log out</button>
     </div>
-    <div class="who"><span id="userEmail"></span><button id="logoutBtn" class="ghost">Log out</button></div>
-  </header>
+  </aside>
 
-  <div class="panel" id="adminPanel" style="display:none">
-    <h2>Access requests — <span id="adminCount">0</span> pending</h2>
-    <table><thead><tr><th>Email</th><th>Status</th><th class="num">Action</th></tr></thead><tbody id="adminBody"></tbody></table>
-  </div>
-
-  <div class="panel" id="geniusPanel">
-    <h2>Import CSV — Genius &amp; HoneyBook</h2>
-    <div class="entry-row">
-      <label class="fld">Location
-        <select id="g_loc"><option>Memphis</option><option>Nashville</option><option>Franklin</option><option>Other</option></select>
-      </label>
-      <input type="file" id="g_files" accept=".csv" multiple />
-      <button class="primary" id="g_import" disabled>Import</button>
-    </div>
-    <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6">Drop Genius (Transactions / Labor Summary) and/or HoneyBook payment exports. Genius → daily sales &amp; labor. HoneyBook → catering payments at net of fees. Both tagged to the chosen location. Re-importing the same period safely overwrites it.</div>
-  </div>
-
-  <div class="filters">
-    <label class="fld">Location
-      <select id="loc">
-        <option value="all">All locations</option>
-        <option value="Memphis">Memphis</option>
-        <option value="Nashville">Nashville</option>
-        <option value="Franklin">Franklin</option>
-        <option value="Other">Other</option>
-      </select>
-    </label>
-    <label class="fld">Date range
-      <select id="preset">
-        <option value="mtd">Month to date</option>
-        <option value="last_month">Last month</option>
-        <option value="qtd">Quarter to date</option>
-        <option value="ytd">Year to date</option>
-        <option value="l12m">Last 12 months</option>
-        <option value="all">All time</option>
-        <option value="custom">Custom…</option>
-      </select>
-    </label>
-    <label class="fld">From <input type="date" id="from" /></label>
-    <label class="fld">To <input type="date" id="to" /></label>
-    <div class="spacer"></div>
-    <button id="refresh" class="primary" style="align-self:flex-end">Refresh</button>
-  </div>
-
-  <div id="error" class="err" style="display:none"></div>
-  <div id="content" style="display:none">
-    <div class="cards">
-      <div class="card"><div class="label">Gross sales</div><div id="rev" class="value income">—</div><div class="hint">before processing fees</div></div>
-      <div class="card"><div class="label">Expenses</div><div id="exp" class="value expense">—</div><div class="hint">recorded outflows</div></div>
-      <div class="card"><div class="label">Net (gross − exp)</div><div id="net" class="value net">—</div><div class="hint">not yet fee-adjusted</div></div>
-      <div class="card"><div class="label">Labor %</div><div id="laborPct" class="value pct">—</div><div class="hint" id="laborHint">labor ÷ sales</div></div>
-      <div class="card"><div class="label">Food cost %</div><div id="foodPct" class="value pct">—</div><div class="hint" id="foodHint">add food costs to enable</div></div>
-      <div class="card"><div class="label">Orders</div><div id="cnt" class="value">—</div><div class="hint">in range</div></div>
-    </div>
-    <div class="panel">
-      <h2 id="chartTitle">Gross sales over time</h2>
-      <canvas id="chart"></canvas>
-    </div>
-    <div class="grid-2">
-      <div class="panel">
-        <h2>By location</h2>
-        <table><thead><tr><th>Location</th><th class="num">Gross sales</th><th class="num">Orders</th></tr></thead><tbody id="locBody"></tbody></table>
+  <!-- MAIN -->
+  <main class="main" id="top">
+    <div class="topbar">
+      <div>
+        <h1>P&amp;L overview</h1>
+        <div class="sub">Live across every source · TicketSpice figures are <b>gross sales</b> (before processing fees), excluding canceled / pending / abandoned orders.</div>
       </div>
-      <div class="panel">
-        <h2>By source</h2>
-        <table><thead><tr><th>Source</th><th class="num">Income</th><th class="num">Expenses</th><th class="num">#</th></tr></thead><tbody id="srcBody"></tbody></table>
+      <div class="controls">
+        <span class="cmp-label">Compare</span>
+        <div class="seg" id="cmpSeg">
+          <button data-cmp="none" class="on">None</button>
+          <button data-cmp="week">vs last week</button>
+          <button data-cmp="month">vs last month</button>
+          <button data-cmp="year">vs last year</button>
+        </div>
+        <button id="refresh" class="ghost">Refresh</button>
       </div>
     </div>
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Top categories</h2>
-        <table><thead><tr><th>Category</th><th></th><th class="num">Amount</th><th class="num">#</th></tr></thead><tbody id="catBody"></tbody></table>
+
+    <div id="error" class="err" style="display:none"></div>
+
+    <div id="content" style="display:none">
+      <!-- HERO: sales trend + prime-cost gauge -->
+      <div class="hero">
+        <div>
+          <div class="chart-head">
+            <h2 id="chartTitle">Gross sales over time</h2>
+            <div class="seg" id="chartSeg">
+              <button data-cp="wtd">Week</button>
+              <button data-cp="mtd" class="on">Month</button>
+              <button data-cp="ytd">Year</button>
+            </div>
+          </div>
+          <canvas id="chart"></canvas>
+        </div>
+        <div class="gauge-wrap">
+          <div class="gauge" id="gauge"><div class="g-val" id="gaugeVal">—</div><div class="g-cap">Prime cost</div></div>
+          <div class="gauge-sub" id="gaugeSub">food + labor ÷ sales · month to date</div>
+        </div>
       </div>
-      <div class="panel">
+
+      <!-- PERIOD COLUMNS -->
+      <div class="periods" id="periods"></div>
+
+      <!-- DETAIL SECTION -->
+      <div class="panel" id="detailPanel">
+        <h2>Detail &amp; trends
+          <span class="filters" style="font-size:11px">
+            <label class="fld">Range
+              <select id="preset">
+                <option value="mtd">Month to date</option>
+                <option value="last_month">Last month</option>
+                <option value="qtd">Quarter to date</option>
+                <option value="ytd">Year to date</option>
+                <option value="l12m">Last 12 months</option>
+                <option value="all">All time</option>
+                <option value="custom">Custom…</option>
+              </select>
+            </label>
+            <label class="fld">From <input type="date" id="from" /></label>
+            <label class="fld">To <input type="date" id="to" /></label>
+          </span>
+        </h2>
+        <div class="grid-2">
+          <div>
+            <h2 style="font-size:13px">By location</h2>
+            <table><thead><tr><th>Location</th><th class="num">Gross sales</th><th class="num">Orders</th></tr></thead><tbody id="locBody"></tbody></table>
+          </div>
+          <div>
+            <h2 style="font-size:13px">By source</h2>
+            <table><thead><tr><th>Source</th><th class="num">Income</th><th class="num">Expenses</th><th class="num">#</th></tr></thead><tbody id="srcBody"></tbody></table>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top:16px">
+          <div>
+            <h2 style="font-size:13px">Top categories</h2>
+            <table><thead><tr><th>Category</th><th></th><th class="num">Amount</th><th class="num">#</th></tr></thead><tbody id="catBody"></tbody></table>
+          </div>
+          <div>
+            <h2 style="font-size:13px">Recent transactions</h2>
+            <table><thead><tr><th>Date</th><th>Loc</th><th>Source</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody id="txnBody"></tbody></table>
+          </div>
+        </div>
+        <div class="foot" id="foot"></div>
+      </div>
+
+      <!-- ADMIN -->
+      <div class="panel" id="adminPanel" style="display:none">
+        <h2>Access requests — <span id="adminCount">0</span> pending</h2>
+        <table><thead><tr><th>Email</th><th>Status</th><th class="num">Action</th></tr></thead><tbody id="adminBody"></tbody></table>
+      </div>
+
+      <!-- IMPORT -->
+      <div class="panel" id="importPanel">
+        <h2>Import CSV — Genius &amp; HoneyBook</h2>
+        <div class="entry-row">
+          <label class="fld">Location
+            <select id="g_loc"><option>Memphis</option><option>Nashville</option><option>Franklin</option><option>Other</option></select>
+          </label>
+          <input type="file" id="g_files" accept=".csv" multiple />
+          <button class="primary" id="g_import" disabled>Import</button>
+        </div>
+        <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6;color:var(--muted)">Drop Genius (Transactions / Labor Summary) and/or HoneyBook payment exports. Genius → daily sales &amp; labor. HoneyBook → catering payments at net of fees. Both tagged to the chosen location. Re-importing the same period safely overwrites it.</div>
+      </div>
+
+      <!-- MANUAL ENTRY -->
+      <div class="panel" id="entryPanel">
         <h2>Add a transaction</h2>
         <div class="entry-row">
           <select id="f_type"><option value="expense">Expense</option><option value="income">Income</option></select>
-          <input id="f_cat" placeholder="Category" style="width:120px" />
-          <input id="f_amt" placeholder="0.00" inputmode="decimal" style="width:80px" />
+          <input id="f_cat" placeholder="Category (e.g. Food, Labor)" style="width:170px" />
+          <input id="f_amt" placeholder="0.00" inputmode="decimal" style="width:90px" />
           <input id="f_date" type="date" />
           <select id="f_loc"><option value="">No location</option><option>Memphis</option><option>Nashville</option><option>Franklin</option><option>Other</option></select>
           <input id="f_memo" class="memo" placeholder="Memo (optional)" />
@@ -181,13 +285,8 @@
         <div id="f_msg" class="sub" style="margin-top:10px;font-size:12px"></div>
       </div>
     </div>
-    <div class="panel">
-      <h2>Recent transactions</h2>
-      <table><thead><tr><th>Date</th><th>Loc</th><th>Source</th><th>Category</th><th>Memo</th><th class="num">Amount</th></tr></thead><tbody id="txnBody"></tbody></table>
-    </div>
-    <div class="foot" id="foot"></div>
-  </div>
-  <div id="loading" class="loading">Loading…</div>
+    <div id="loading" class="loading">Loading…</div>
+  </main>
 </div>
 
 <script>
@@ -203,13 +302,14 @@ try {
     auth: { lock: (_name, _acquireTimeout, fn) => fn(), persistSession: true, autoRefreshToken: true }
   });
 } catch (e) {
-  // Never leave a black screen: show the login card with a clear message.
   const a = $("auth"); if (a) a.style.display = "block";
-  const m = $("authMsg"); if (m) { m.style.color = "#f87171"; m.textContent = "Couldn’t load the login service (network or ad-blocker?). Refresh to retry."; }
+  const m = $("authMsg"); if (m) { m.style.color = "#dc2626"; m.textContent = "Couldn’t load the login service (network or ad-blocker?). Refresh to retry."; }
 }
 const usd = c => (c/100).toLocaleString("en-US",{style:"currency",currency:"USD"});
+const usd0 = c => (c/100).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
 const iso = d => d.toISOString().slice(0,10);
 let chart;
+let curLoc = "all";
 
 // ---------- AUTH ----------
 let rendered = false;
@@ -217,15 +317,11 @@ function showView(v){ // 'auth' | 'gate' | 'app'
   rendered = true;
   $("auth").style.display = v==='auth'?'block':'none';
   $("gate").style.display = v==='gate'?'block':'none';
-  $("app").style.display  = v==='app'?'block':'none';
+  $("app").style.display  = v==='app'?'grid':'none';
 }
-// Race any promise against a timeout so a stalled auth/network call can never hang the UI.
 function withTimeout(p, ms, fallback){ return Promise.race([p, new Promise(r=>setTimeout(()=>r(fallback), ms))]); }
 
 const MASTER_EMAIL = 'bbearo@gmail.com';
-// Decide access robustly. Master is determined by email so an RPC hiccup can never gate it.
-// Everyone else retries the RPC a few times to beat the token-attach race that can transiently
-// return 'none' right after login (which previously showed a false "Request access" screen).
 async function accessState(session){
   if((session.user.email||'').toLowerCase() === MASTER_EMAIL) return 'master';
   for(let i=0;i<4;i++){
@@ -237,33 +333,27 @@ async function accessState(session){
 async function handleSession(session){
   if(!session){ showView('auth'); return; }
   $("userEmail").textContent = session.user.email;
-  showView('app');                         // show the shell immediately — never sit blank
+  showView('app');
   const state = await accessState(session);
   if(state==='master' || state==='approved'){
-    $("adminPanel").style.display = state==='master' ? 'block' : 'none';
-    if(state==='master') loadAdmin();
+    const isMaster = state==='master';
+    $("adminPanel").style.display = isMaster ? 'block' : 'none';
+    $("navAdmin").style.display = isMaster ? 'flex' : 'none';
+    if(isMaster) loadAdmin();
     load();
   } else {
     showView('gate');
     renderGate(state, session.user.email);
   }
 }
-
 function startAuth(){
-  // Primary driver: the auth-state event delivers the session without the getSession() stall.
   sb.auth.onAuthStateChange((_e, session)=> handleSession(session));
-  // Watchdog: if nothing has rendered shortly after load, fall back (try a timed getSession, else show login).
   setTimeout(async ()=>{
     if(rendered) return;
     try{ const s = await withTimeout(sb.auth.getSession(), 3000, {data:{session:null}}); handleSession(s.data.session); }
     catch(e){ showView('auth'); }
   }, 2500);
 }
-async function refreshSession(){ // used by logout/login paths
-  try{ const s = await withTimeout(sb.auth.getSession(), 3000, {data:{session:null}}); handleSession(s.data.session); }
-  catch(e){ showView('auth'); }
-}
-
 function renderGate(state, email){
   const g=$("gateBody");
   if(state==='pending') g.innerHTML = `<h2 style="margin:0 0 8px">Access pending</h2><p style="color:var(--muted)">Your request for <b>${email}</b> is awaiting approval. You’ll get in as soon as an admin approves it.</p>`;
@@ -274,11 +364,10 @@ function renderGate(state, email){
 async function requestAccess(){
   const { data:{ session } } = await sb.auth.getSession();
   const { error } = await sb.from('app_users').insert({ email: session.user.email, status:'pending' });
-  if(error){ $("gateBody").insertAdjacentHTML('beforeend', `<p style="color:#f87171">${error.message}</p>`); return; }
+  if(error){ $("gateBody").insertAdjacentHTML('beforeend', `<p style="color:#dc2626">${error.message}</p>`); return; }
   renderGate('pending', session.user.email);
 }
 async function loadAdmin(){
-  // Show only OPEN (pending) requests — approving or denying clears them from the list.
   const { data, error } = await sb.from('app_users').select('*').eq('status','pending').order('requested_at',{ascending:false});
   if(error) return;
   const rows = data||[];
@@ -292,24 +381,23 @@ async function decide(email, status){
   loadAdmin();
 }
 $("gateLogout").addEventListener("click", ()=> sb.auth.signOut());
-
 async function login(){
   const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Signing in…";
   const { error } = await sb.auth.signInWithPassword({ email:$("email").value.trim(), password:$("password").value });
-  if(error){ m.style.color="#f87171"; m.textContent=error.message; }
+  if(error){ m.style.color="#dc2626"; m.textContent=error.message; }
 }
 async function signup(){
   const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Creating account…";
   const { data, error } = await sb.auth.signUp({ email:$("email").value.trim(), password:$("password").value });
-  if(error){ m.style.color="#f87171"; m.textContent=error.message; return; }
-  if(!data.session){ m.style.color="#34d399"; m.textContent="Account created. If asked, confirm via email, then log in."; }
+  if(error){ m.style.color="#dc2626"; m.textContent=error.message; return; }
+  if(!data.session){ m.style.color="#16a34a"; m.textContent="Account created. If asked, confirm via email, then log in."; }
 }
 $("loginBtn").addEventListener("click", login);
 $("signupBtn").addEventListener("click", signup);
 $("password").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
 $("logoutBtn").addEventListener("click", ()=> sb.auth.signOut());
 
-// ---------- DATE PRESETS ----------
+// ---------- DATE HELPERS ----------
 function presetRange(p){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth(); const first=(yy,mm)=>new Date(yy,mm,1);
   switch(p){
@@ -326,6 +414,24 @@ function applyPreset(){
   const p=$("preset").value; if(p==="custom") return;
   const [a,b]=presetRange(p); $("from").value=iso(a); $("to").value=iso(b);
 }
+function periodWindows(){
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+  const weekStart=new Date(y,m,d-now.getDay());      // Sunday of current week
+  const monthStart=new Date(y,m,1);
+  const yearStart=new Date(y,0,1);
+  return { wtd:[weekStart, now], mtd:[monthStart, now], ytd:[yearStart, now] };
+}
+function shiftWin([s,e], unit){
+  const ss=new Date(s), ee=new Date(e);
+  if(unit==='week'){ ss.setDate(ss.getDate()-7); ee.setDate(ee.getDate()-7); }
+  else if(unit==='month'){ ss.setMonth(ss.getMonth()-1); ee.setMonth(ee.getMonth()-1); }
+  else if(unit==='year'){ ss.setFullYear(ss.getFullYear()-1); ee.setFullYear(ee.getFullYear()-1); }
+  return [ss,ee];
+}
+const fmtRange=(s,e)=>{
+  const o={month:"short",day:"numeric"};
+  return s.toLocaleDateString("en-US",o)+" – "+e.toLocaleDateString("en-US",o);
+};
 
 // ---------- DATA ----------
 async function fetchAll(from,to,loc){
@@ -346,65 +452,149 @@ async function fetchAll(from,to,loc){
   }
   return all;
 }
-function fmtBucket(key,daily){
-  if(daily){ const [y,m,d]=key.split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
-  const [y,m]=key.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("en-US",{month:"short",year:"2-digit"});
+function inWindow(rows, start, end){
+  const s=iso(start), e=iso(end);
+  return rows.filter(r=> r.txn_date>=s && r.txn_date<=e);
 }
+function metricsFor(rows){
+  let inc=0, ex=0, orders=0, labor=0, food=0;
+  for(const r of rows){
+    if(r.type==="income"){ inc+=r.amount_cents; orders++; }
+    else {
+      ex+=r.amount_cents;
+      const c=(r.category||'').toLowerCase();
+      if(c.includes('labor')) labor+=r.amount_cents;          // labor wins to avoid double-count
+      else if(c.includes('food')||c.includes('cogs')) food+=r.amount_cents;
+    }
+  }
+  return {inc, ex, net:inc-ex, orders, labor, food, cogs:food+labor};
+}
+function deltaChip(cur, prev, goodUp){
+  if(prev==null || prev===0) return '<span class="delta flat">—</span>';
+  const pct=(cur-prev)/Math.abs(prev)*100;
+  const up=pct>=0, good = goodUp? up : !up;
+  const cls = Math.abs(pct)<0.05 ? 'flat' : (good?'good':'bad');
+  return `<span class="delta ${cls}">${up?'▲':'▼'} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+const pctOf=(part,whole)=> whole>0 ? (part/whole*100) : null;
+const pctTxt=(p,suffix)=> p==null ? '—' : p.toFixed(1)+'%'+(suffix||'');
+
+let ALLROWS=[];
+
+function periodCard(title, s, e, cur, prev, showCmp){
+  const ct=showCmp?'':'style="display:none"';
+  const costTile=(label, val, prevVal, hint)=>{
+    const p=pctOf(val,cur.inc);
+    const cls = label==='Total COGS' ? 'tile cogs' : 'tile hero-tile';
+    return `<div class="${cls}">
+      <div class="tile-top"><span class="l">${label}</span><span class="delta-slot" ${ct}>${deltaChip(val, prevVal, false)}</span></div>
+      <div class="v">${usd0(val)}</div>
+      <div class="meta"><span class="pct">${pctTxt(p,' of sales')}</span></div>
+      ${hint?`<div class="hint">${hint}</div>`:''}
+    </div>`;
+  };
+  const mini=(label, val, prevVal, kind, goodUp)=>{
+    const neg = kind==='net' && val<0;
+    return `<div class="mini">
+      <div class="l">${label}</div>
+      <div class="v ${kind}${neg?' neg':''}">${usd0(val)}</div>
+      <div ${ct} style="margin-top:3px">${deltaChip(val, prevVal, goodUp)}</div>
+    </div>`;
+  };
+  return `<div class="pcol">
+    <div class="pcol-head"><span class="pcol-title">${title}</span><span class="pcol-sub">${fmtRange(s,e)}</span></div>
+    <div class="mini-row">
+      ${mini('Revenue', cur.inc, prev&&prev.inc, 'income', true)}
+      ${mini('Net', cur.net, prev&&prev.net, 'net', true)}
+    </div>
+    ${costTile('Food cost', cur.food, prev&&prev.food)}
+    ${costTile('Labor', cur.labor, prev&&prev.labor)}
+    ${costTile('Total COGS', cur.cogs, prev&&prev.cogs, 'food + labor · prime cost')}
+  </div>`;
+}
+
+function renderPeriods(){
+  const wins=periodWindows();
+  const unit=curCmp;
+  const showCmp = unit!=='none';
+  const titles={wtd:'Week to date', mtd:'Month to date', ytd:'Year to date'};
+  let html='';
+  for(const key of ['wtd','mtd','ytd']){
+    const [s,e]=wins[key];
+    const cur=metricsFor(inWindow(ALLROWS,s,e));
+    let prev=null;
+    if(showCmp){ const [ps,pe]=shiftWin([s,e],unit); prev=metricsFor(inWindow(ALLROWS,ps,pe)); }
+    html+=periodCard(titles[key], s, e, cur, prev, showCmp);
+  }
+  $("periods").innerHTML=html;
+}
+
+function renderGauge(){
+  const [s,e]=periodWindows().mtd;
+  const m=metricsFor(inWindow(ALLROWS,s,e));
+  const prime=pctOf(m.cogs,m.inc);
+  const g=$("gauge");
+  if(prime==null){ $("gaugeVal").textContent='—'; g.style.background='conic-gradient(#e6e8ec 0 100%)'; return; }
+  const clamped=Math.min(prime,100);
+  const color = prime<=60 ? 'var(--good)' : (prime<=68 ? 'var(--amber)' : 'var(--bad)');
+  g.style.background=`conic-gradient(${color} ${clamped}%, #e3e0d4 0)`;
+  $("gaugeVal").textContent=prime.toFixed(0)+'%';
+}
+
+function renderChart(){
+  const wins=periodWindows();
+  const [s,e]=wins[chartPeriod];
+  const rows=inWindow(ALLROWS,s,e).filter(r=>r.type==='income');
+  const daily = chartPeriod!=='ytd';
+  $("chartTitle").textContent=`Gross sales — ${({wtd:'this week',mtd:'this month',ytd:'this year'})[chartPeriod]} (${daily?'daily':'monthly'})`;
+  const buckets=new Map();
+  for(const r of rows){ const k=daily?r.txn_date:r.txn_date.slice(0,7); buckets.set(k,(buckets.get(k)||0)+r.amount_cents); }
+  const keys=[...buckets.keys()].sort();
+  const labels=keys.map(k=>{
+    if(daily){ const [y,m,d]=k.split("-"); return new Date(+y,+m-1,+d).toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
+    const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString("en-US",{month:"short"});
+  });
+  if(chart) chart.destroy();
+  chart=new Chart($("chart"),{type:"bar",
+    data:{labels,datasets:[{label:"Gross sales",data:keys.map(k=>buckets.get(k)/100),backgroundColor:"#16a34a",borderRadius:5,maxBarThickness:34}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>"$"+(+c.raw).toLocaleString("en-US",{minimumFractionDigits:2})}}},
+      scales:{x:{ticks:{color:"#9aa1ad",maxRotation:0,autoSkip:true},grid:{display:false}},y:{ticks:{color:"#9aa1ad",callback:v=>"$"+v.toLocaleString()},grid:{color:"#e7e3d6"}}}}});
+}
+
+function renderDetail(rows, from, to){
+  const locMap=new Map();
+  for(const r of rows){ if(r.type!=="income")continue; const k=r.location||"Unassigned"; const o=locMap.get(k)||{c:0,n:0}; o.c+=r.amount_cents;o.n++;locMap.set(k,o); }
+  $("locBody").innerHTML=[...locMap.entries()].sort((a,b)=>b[1].c-a[1].c).map(([k,v])=>`<tr><td>${k}</td><td class="num pos">${usd(v.c)}</td><td class="num">${v.n}</td></tr>`).join("")||`<tr><td colspan="3" class="empty">No data</td></tr>`;
+
+  const srcMap=new Map();
+  for(const r of rows){ const o=srcMap.get(r.source)||{inc:0,ex:0,n:0}; if(r.type==="income")o.inc+=r.amount_cents; else o.ex+=r.amount_cents; o.n++; srcMap.set(r.source,o); }
+  $("srcBody").innerHTML=[...srcMap.entries()].sort((a,b)=>b[1].inc-a[1].inc).map(([k,v])=>`<tr><td><span class="pill">${k}</span></td><td class="num pos">${v.inc?usd(v.inc):"—"}</td><td class="num neg">${v.ex?"−"+usd(v.ex):"—"}</td><td class="num">${v.n}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No data</td></tr>`;
+
+  const catMap=new Map();
+  for(const r of rows){ const k=r.type+"|"+r.category; const o=catMap.get(k)||{type:r.type,cat:r.category,c:0,n:0}; o.c+=r.amount_cents;o.n++;catMap.set(k,o); }
+  $("catBody").innerHTML=[...catMap.values()].sort((a,b)=>b.c-a.c).slice(0,12).map(c=>`<tr><td>${c.cat}</td><td><span class="pill">${c.type}</span></td><td class="num ${c.type==='income'?'pos':'neg'}">${c.type==='income'?'':'−'}${usd(c.c)}</td><td class="num">${c.n}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No data</td></tr>`;
+
+  $("txnBody").innerHTML=rows.slice(0,40).map(r=>`<tr><td>${r.txn_date}</td><td>${r.location||"—"}</td><td><span class="pill">${r.source}</span></td><td>${r.category}</td><td class="num ${r.type==='income'?'pos':'neg'}">${r.type==='income'?'':'−'}${usd(r.amount_cents)}</td></tr>`).join("")||`<tr><td colspan="5" class="empty">No transactions in range</td></tr>`;
+
+  $("foot").textContent=`${rows.length} rows · ${from} → ${to} · updated ${new Date().toLocaleString()}`;
+}
+
+let curCmp='none', chartPeriod='mtd';
 
 async function load(){
   const err=$("error"); err.style.display="none"; $("loading").style.display="block";
   try{
-    const from=$("from").value, to=$("to").value, loc=$("loc").value;
-    const rows = await fetchAll(from,to,loc);
+    // Period-columns window: Jan 1 of last year → today covers WTD/MTD/YTD plus week/month/year comparisons.
+    const now=new Date();
+    const pFrom=iso(new Date(now.getFullYear()-1,0,1)), pTo=iso(now);
+    ALLROWS = await fetchAll(pFrom, pTo, curLoc);
+    renderPeriods(); renderGauge(); renderChart();
 
-    let inc=0, ex=0, orders=0, laborCents=0, foodCents=0;
-    for(const r of rows){
-      if(r.type==="income"){ inc+=r.amount_cents; orders++; }
-      else {
-        ex+=r.amount_cents;
-        const cat=(r.category||'').toLowerCase();
-        if(cat.includes('labor')) laborCents+=r.amount_cents;
-        if(cat.includes('food')||cat.includes('cogs')) foodCents+=r.amount_cents;
-      }
-    }
-    $("rev").textContent=usd(inc); $("exp").textContent=usd(ex);
-    const netEl=$("net"); const nt=inc-ex; netEl.textContent=usd(nt); netEl.classList.toggle("negative",nt<0);
-    $("cnt").textContent=orders.toLocaleString();
+    // Detail section: its own range selector.
+    const from=$("from").value, to=$("to").value;
+    const detailRows = await fetchAll(from, to, curLoc);
+    renderDetail(detailRows, from, to);
 
-    // Labor % and Food cost % — measured against all sales in the current view
-    const lp = inc>0 ? (laborCents/inc*100) : null;
-    $("laborPct").textContent = (lp!=null && laborCents>0) ? lp.toFixed(1)+'%' : '—';
-    $("laborHint").textContent = laborCents>0 ? `${usd(laborCents)} labor ÷ ${usd(inc)} sales` : 'no labor in this range';
-    const fp = inc>0 ? (foodCents/inc*100) : null;
-    $("foodPct").textContent = (fp!=null && foodCents>0) ? fp.toFixed(1)+'%' : '—';
-    $("foodHint").textContent = foodCents>0 ? `${usd(foodCents)} food ÷ ${usd(inc)} sales` : 'add food costs to enable';
-
-    const span=Math.round((new Date(to)-new Date(from))/86400000)+1; const daily=span<=92;
-    $("chartTitle").textContent=`Gross sales over time (${daily?"daily":"monthly"})`;
-    const buckets=new Map();
-    for(const r of rows){ if(r.type!=="income")continue; const k=daily?r.txn_date:r.txn_date.slice(0,7); buckets.set(k,(buckets.get(k)||0)+r.amount_cents); }
-    const keys=[...buckets.keys()].sort();
-    if(chart) chart.destroy();
-    chart=new Chart($("chart"),{type:"bar",
-      data:{labels:keys.map(k=>fmtBucket(k,daily)),datasets:[{label:"Gross sales",data:keys.map(k=>buckets.get(k)/100),backgroundColor:"#34d399",borderRadius:4}]},
-      options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>"$"+(+c.raw).toLocaleString("en-US",{minimumFractionDigits:2})}}},
-        scales:{x:{ticks:{color:"#8a96ad",maxRotation:0,autoSkip:true},grid:{display:false}},y:{ticks:{color:"#8a96ad",callback:v=>"$"+v.toLocaleString()},grid:{color:"#243049"}}}}});
-
-    const locMap=new Map();
-    for(const r of rows){ if(r.type!=="income")continue; const k=r.location||"Unassigned"; const o=locMap.get(k)||{c:0,n:0}; o.c+=r.amount_cents;o.n++;locMap.set(k,o); }
-    $("locBody").innerHTML=[...locMap.entries()].sort((a,b)=>b[1].c-a[1].c).map(([k,v])=>`<tr><td>${k}</td><td class="num pos">${usd(v.c)}</td><td class="num">${v.n}</td></tr>`).join("")||`<tr><td colspan="3" class="empty">No data</td></tr>`;
-
-    const srcMap=new Map();
-    for(const r of rows){ const o=srcMap.get(r.source)||{inc:0,ex:0,n:0}; if(r.type==="income")o.inc+=r.amount_cents; else o.ex+=r.amount_cents; o.n++; srcMap.set(r.source,o); }
-    $("srcBody").innerHTML=[...srcMap.entries()].sort((a,b)=>b[1].inc-a[1].inc).map(([k,v])=>`<tr><td><span class="pill">${k}</span></td><td class="num pos">${v.inc?usd(v.inc):"—"}</td><td class="num neg">${v.ex?"−"+usd(v.ex):"—"}</td><td class="num">${v.n}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No data</td></tr>`;
-
-    const catMap=new Map();
-    for(const r of rows){ const k=r.type+"|"+r.category; const o=catMap.get(k)||{type:r.type,cat:r.category,c:0,n:0}; o.c+=r.amount_cents;o.n++;catMap.set(k,o); }
-    $("catBody").innerHTML=[...catMap.values()].sort((a,b)=>b.c-a.c).slice(0,15).map(c=>`<tr><td>${c.cat}</td><td><span class="pill">${c.type}</span></td><td class="num ${c.type==='income'?'pos':'neg'}">${c.type==='income'?'':'−'}${usd(c.c)}</td><td class="num">${c.n}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No data</td></tr>`;
-
-    $("txnBody").innerHTML=rows.slice(0,50).map(r=>`<tr><td>${r.txn_date}</td><td>${r.location||"—"}</td><td><span class="pill">${r.source}</span></td><td>${r.category}</td><td>${(r.memo||"").replace(/</g,"&lt;")}</td><td class="num ${r.type==='income'?'pos':'neg'}">${r.type==='income'?'':'−'}${usd(r.amount_cents)}</td></tr>`).join("")||`<tr><td colspan="6" class="empty">No transactions in range</td></tr>`;
-
-    $("foot").textContent=`${rows.length} rows · ${from} → ${to} · updated ${new Date().toLocaleString()}`;
     $("content").style.display="block";
   }catch(e){ err.textContent="Couldn’t load data: "+(e.message||e); err.style.display="block"; }
   finally{ $("loading").style.display="none"; }
@@ -412,16 +602,16 @@ async function load(){
 
 async function addTxn(){
   const msg=$("f_msg"); const cat=$("f_cat").value.trim(); const amt=Math.round(parseFloat($("f_amt").value)*100);
-  if(!cat||!Number.isFinite(amt)||amt<0){ msg.style.color="#f87171"; msg.textContent="Enter a category and valid amount."; return; }
+  if(!cat||!Number.isFinite(amt)||amt<0){ msg.style.color="#dc2626"; msg.textContent="Enter a category and valid amount."; return; }
   const row={ source:"manual", type:$("f_type").value, category:cat, amount_cents:amt, txn_date:$("f_date").value||iso(new Date()),
     location:$("f_loc").value||null, status:"completed", memo:$("f_memo").value.trim() };
   const { error } = await sb.from("transactions").insert(row);
-  if(error){ msg.style.color="#f87171"; msg.textContent=error.message; return; }
-  msg.style.color="#34d399"; msg.textContent="Saved.";
+  if(error){ msg.style.color="#dc2626"; msg.textContent=error.message; return; }
+  msg.style.color="#16a34a"; msg.textContent="Saved.";
   $("f_cat").value="";$("f_amt").value="";$("f_memo").value=""; load();
 }
 
-// ---------- GENIUS CSV IMPORT ----------
+// ---------- GENIUS / HONEYBOOK CSV IMPORT ----------
 const G_MONTHS={January:1,February:2,March:3,April:4,May:5,June:6,July:7,August:8,September:9,October:10,November:11,December:12};
 function gMoney(s){ s=(s||'').toString().replace(/[$,]/g,'').trim(); const neg=/^\(.*\)$/.test(s); s=s.replace(/[()]/g,''); const v=parseFloat(s); return isNaN(v)?0:(neg?-v:v); }
 function gTxnDate(s){ const m=/(\d{2})\/(\d{2})\/(\d{2})/.exec(s||''); return m?`20${m[3]}-${m[1]}-${m[2]}`:null; }
@@ -434,17 +624,17 @@ function processGenius(rows){
   const hdr = rows[hi].map(x=>(x||'').trim());
   const data = rows.slice(hi+1);
   const byDay={};
-  if(hdr.includes('Ticket #')){ // SALES
+  if(hdr.includes('Ticket #')){
     const iAmt=hdr.indexOf('Amount'), iStatus=hdr.indexOf('Status'), iDate=hdr.indexOf('Date');
     for(const r of data){ if(!r||r.length<=iAmt) continue; if((r[iStatus]||'').trim()==='Void') continue; const d=gTxnDate(r[iDate]); if(!d) continue; byDay[d]=(byDay[d]||0)+gMoney(r[iAmt]); }
     return {type:'sales', byDay};
   }
-  if(hdr.includes('Date/Time') && hdr.includes('Labor Cost')){ // LABOR
+  if(hdr.includes('Date/Time') && hdr.includes('Labor Cost')){
     const iCost=hdr.indexOf('Labor Cost'), iDate=hdr.indexOf('Date/Time');
     for(const r of data){ if(!r) continue; const d=gLaborDate(r[iDate]); if(!d) continue; byDay[d]=gMoney(r[iCost]); }
     return {type:'labor', byDay};
   }
-  if(hdr.includes('NET_AMOUNT')){ // HONEYBOOK payments
+  if(hdr.includes('NET_AMOUNT')){
     const c=n=>hdr.indexOf(n);
     const iStat=c('PAYMENT_STATUS'), iNet=c('NET_AMOUNT'), iRef=c('REFUNDED_AMOUNT'), iDate=c('TRANSACTION_DATE'), iInv=c('INVOICE'), iProj=c('PROJECT_NAME'), iClient=c('CLIENT_INFO');
     const payments=[];
@@ -497,7 +687,7 @@ async function importGenius(){
       amount_cents:Math.round(Math.abs(v)*100), txn_date:d, location:loc, status:'completed',
       external_id:`genius-labor:${loc}:${d}`, memo:`Genius labor — ${loc}`});
   }
-  for(const p of (geniusParsed.payments||[])){  // HoneyBook catering — net of fees, tagged to the chosen location
+  for(const p of (geniusParsed.payments||[])){
     rows.push({source:'honeybook', type:p.amount<0?'expense':'income', category:p.amount<0?'Refunds':'Catering',
       amount_cents:Math.round(Math.abs(p.amount)*100), txn_date:p.date, location:loc, status:'completed',
       external_id:p.externalId, memo:p.memo});
@@ -506,18 +696,43 @@ async function importGenius(){
   $("g_preview").innerHTML += `<br>Importing ${rows.length} day-rows for ${loc}…`;
   for(let i=0;i<rows.length;i+=500){
     const { error } = await sb.from('transactions').upsert(rows.slice(i,i+500), {onConflict:'source,external_id'});
-    if(error){ $("g_preview").innerHTML += `<br><span style="color:#f87171">Error: ${error.message}</span>`; return; }
+    if(error){ $("g_preview").innerHTML += `<br><span style="color:#dc2626">Error: ${error.message}</span>`; return; }
   }
-  $("g_preview").innerHTML += `<br><span style="color:#34d399">Imported ${rows.length} day-rows.</span>`;
+  $("g_preview").innerHTML += `<br><span style="color:#16a34a">Imported ${rows.length} day-rows.</span>`;
   geniusParsed=null; $("g_files").value='';
   load();
 }
 $("g_files").addEventListener('change', onGeniusFiles);
 $("g_import").addEventListener('click', importGenius);
 
-$("preset").addEventListener("change", ()=>{ applyPreset(); load(); });
-["from","to"].forEach(id=>$(id).addEventListener("change", ()=>{ $("preset").value="custom"; load(); }));
-$("loc").addEventListener("change", load);
+// ---------- CONTROLS ----------
+// Comparison toggle
+$("cmpSeg").querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+  $("cmpSeg").querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); curCmp=b.dataset.cmp; renderPeriods();
+}));
+// Chart period toggle
+$("chartSeg").querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>{
+  $("chartSeg").querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); chartPeriod=b.dataset.cp; renderChart();
+}));
+// Sidebar: location filter
+$("navLoc").querySelectorAll('a').forEach(a=>a.addEventListener('click', ()=>{
+  $("navLoc").querySelectorAll('a').forEach(x=>x.classList.remove('active'));
+  a.classList.add('active'); curLoc=a.dataset.loc; load();
+}));
+// Sidebar: scroll-to
+$("navMain").querySelectorAll('a').forEach(a=>a.addEventListener('click', ()=>{
+  $("navMain").querySelectorAll('a').forEach(x=>x.classList.remove('active'));
+  a.classList.add('active');
+  const t=$(a.dataset.scroll); if(t) t.scrollIntoView({behavior:'smooth',block:'start'});
+}));
+// Detail range
+$("preset").addEventListener("change", async ()=>{ applyPreset(); await reloadDetail(); });
+["from","to"].forEach(id=>$(id).addEventListener("change", async ()=>{ $("preset").value="custom"; await reloadDetail(); }));
+async function reloadDetail(){
+  try{ const from=$("from").value,to=$("to").value; const rows=await fetchAll(from,to,curLoc); renderDetail(rows,from,to); }catch(e){}
+}
 $("refresh").addEventListener("click", load);
 $("f_add").addEventListener("click", addTxn);
 $("f_date").value=iso(new Date());
