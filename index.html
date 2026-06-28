@@ -71,9 +71,12 @@
   /* ---------- PERIOD COLUMNS ---------- */
   .periods{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px}
   .pcol{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 16px 18px;display:flex;flex-direction:column;gap:10px}
-  .pcol-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px}
+  .pcol-head{display:flex;align-items:center;margin-bottom:2px}
   .pcol-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
-  .pcol-sub{font-size:11px;color:var(--faint)}
+  .pcol-sel{font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink);background:#fafbfc;border:1px solid var(--border);border-radius:9px;padding:6px 8px;cursor:pointer;max-width:100%}
+  .pcol-sel:hover{background:#f3f4f6}
+  .pcol-sub{font-size:11px;color:var(--faint);margin:5px 0 2px}
+  .cmp-note{color:var(--muted);font-weight:600}
   .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .mini{background:#fafbfc;border:1px solid var(--border2);border-radius:11px;padding:10px 12px}
   .mini .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
@@ -177,7 +180,7 @@
       <div class="controls">
         <span class="cmp-label">Compare</span>
         <div class="seg" id="cmpSeg">
-          <button data-cmp="none" class="on">None</button>
+          <button data-cmp="current" class="on">vs current</button>
           <button data-cmp="week">vs last week</button>
           <button data-cmp="month">vs last month</button>
           <button data-cmp="year">vs last year</button>
@@ -496,8 +499,44 @@ const pctTxt=(p,suffix)=> p==null ? '—' : p.toFixed(1)+'%'+(suffix||'');
 
 let ALLROWS=[];
 
-function periodCard(title, s, e, cur, prev, showCmp){
+// ----- per-column period selection -----
+const selPeriod={wtd:'current', mtd:'current', ytd:'current'};
+function thisWeekMonday(now){ const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()); const dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return d; }
+function currentRef(type){ // always-current, to-date window
+  const now=new Date();
+  if(type==='wtd') return [thisWeekMonday(now), now];
+  if(type==='mtd') return [new Date(now.getFullYear(),now.getMonth(),1), now];
+  return [new Date(now.getFullYear(),0,1), now];
+}
+function dispWindow(type, sel){ // displayed window: current = to-date; past = full completed period
+  if(sel==='current') return currentRef(type);
+  if(type==='wtd'){ const mon=new Date(sel); const sun=new Date(mon); sun.setDate(mon.getDate()+6); return [mon, sun]; }
+  if(type==='mtd'){ const [y,m]=sel.split('-').map(Number); return [new Date(y,m-1,1), new Date(y,m,0)]; }
+  const y=Number(sel); return [new Date(y,0,1), new Date(y,11,31)];
+}
+function periodOptions(type){
+  const minIso = ALLROWS.length ? ALLROWS.reduce((a,r)=> r.txn_date<a?r.txn_date:a, ALLROWS[0].txn_date) : iso(new Date());
+  const now=new Date(); const opts=[];
+  if(type==='wtd'){
+    opts.push(['current','This week (to date)']);
+    let mon=thisWeekMonday(now);
+    for(let i=1;i<=52;i++){ mon=new Date(mon); mon.setDate(mon.getDate()-7); const sun=new Date(mon); sun.setDate(mon.getDate()+6); if(iso(sun)<minIso) break; opts.push([iso(mon), `Week of ${mon.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'})}`]); }
+  } else if(type==='mtd'){
+    opts.push(['current','This month (to date)']);
+    const [minY,minM]=minIso.split('-').map(Number); const floor=new Date(minY,minM-1,1);
+    let dt=new Date(now.getFullYear(),now.getMonth()-1,1);
+    while(dt>=floor){ opts.push([`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`, dt.toLocaleDateString('en-US',{month:'short',year:'numeric'})]); dt=new Date(dt.getFullYear(),dt.getMonth()-1,1); }
+  } else {
+    opts.push(['current','This year (to date)']);
+    const minY=Number(minIso.slice(0,4));
+    for(let y=now.getFullYear()-1; y>=minY; y--) opts.push([String(y), String(y)]);
+  }
+  return opts;
+}
+
+function periodCard(type, sel, options, s, e, cur, prev, showCmp, cmpLabel){
   const ct=showCmp?'':'style="display:none"';
+  const optHtml=options.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');
   const costTile=(label, val, prevVal, hint)=>{
     const p=pctOf(val,cur.inc);
     const cls = label==='Total COGS' ? 'tile cogs' : 'tile hero-tile';
@@ -516,8 +555,10 @@ function periodCard(title, s, e, cur, prev, showCmp){
       <div ${ct} style="margin-top:3px">${deltaChip(val, prevVal, goodUp)}</div>
     </div>`;
   };
+  const sub = `${fmtRange(s,e)}${showCmp?` · <span class="cmp-note">${cmpLabel}</span>`:''}`;
   return `<div class="pcol">
-    <div class="pcol-head"><span class="pcol-title">${title}</span><span class="pcol-sub">${fmtRange(s,e)}</span></div>
+    <div class="pcol-head"><select class="pcol-sel" data-type="${type}">${optHtml}</select></div>
+    <div class="pcol-sub">${sub}</div>
     <div class="mini-row">
       ${mini('Revenue', cur.inc, prev&&prev.inc, 'income', true)}
       ${mini('Net', cur.net, prev&&prev.net, 'net', true)}
@@ -529,19 +570,24 @@ function periodCard(title, s, e, cur, prev, showCmp){
 }
 
 function renderPeriods(){
-  const wins=periodWindows();
-  const unit=curCmp;
-  const showCmp = unit!=='none';
-  const titles={wtd:'Week to date', mtd:'Month to date', ytd:'Year to date'};
   let html='';
-  for(const key of ['wtd','mtd','ytd']){
-    const [s,e]=wins[key];
+  for(const type of ['wtd','mtd','ytd']){
+    const sel=selPeriod[type];
+    const options=periodOptions(type);
+    const [s,e]=dispWindow(type, sel);
     const cur=metricsFor(inWindow(ALLROWS,s,e));
-    let prev=null;
-    if(showCmp){ const [ps,pe]=shiftWin([s,e],unit); prev=metricsFor(inWindow(ALLROWS,ps,pe)); }
-    html+=periodCard(titles[key], s, e, cur, prev, showCmp);
+    let prev=null, cmpLabel='';
+    if(curCmp==='current'){
+      if(sel!=='current'){ const [cs,ce]=currentRef(type); prev=metricsFor(inWindow(ALLROWS,cs,ce)); cmpLabel='vs current'; }
+    } else {
+      const [ps,pe]=shiftWin([s,e],curCmp); prev=metricsFor(inWindow(ALLROWS,ps,pe)); cmpLabel='vs last '+curCmp;
+    }
+    html+=periodCard(type, sel, options, s, e, cur, prev, prev!=null, cmpLabel);
   }
   $("periods").innerHTML=html;
+  $("periods").querySelectorAll('.pcol-sel').forEach(selEl=>selEl.addEventListener('change', ()=>{
+    selPeriod[selEl.dataset.type]=selEl.value; renderPeriods();
+  }));
 }
 
 function renderGauge(){
@@ -594,15 +640,14 @@ function renderDetail(rows, from, to){
   $("foot").textContent=`${rows.length} rows · ${from} → ${to} · updated ${new Date().toLocaleString()}`;
 }
 
-let curCmp='none', chartPeriod='mtd';
+let curCmp='current', chartPeriod='mtd';
 
 async function load(){
   const err=$("error"); err.style.display="none"; $("loading").style.display="block";
   try{
-    // Period-columns window: Jan 1 of last year → today covers WTD/MTD/YTD plus week/month/year comparisons.
+    // Period-columns window: all history so any past week/month/year is selectable in the dropdowns.
     const now=new Date();
-    const pFrom=iso(new Date(now.getFullYear()-1,0,1)), pTo=iso(now);
-    ALLROWS = await fetchAll(pFrom, pTo, curLoc);
+    ALLROWS = await fetchAll('2000-01-01', iso(now), curLoc);
     renderPeriods(); renderGauge(); renderChart();
 
     // Detail section: its own range selector.
