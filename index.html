@@ -269,7 +269,7 @@
           <input type="file" id="g_files" accept=".csv" multiple />
           <button class="primary" id="g_import" disabled>Import</button>
         </div>
-        <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6;color:var(--muted)">Drop Genius (Transactions / Labor Summary) and/or HoneyBook payment exports. Genius → daily sales &amp; labor. HoneyBook → catering payments at net of fees. Both tagged to the chosen location. Re-importing the same period safely overwrites it.</div>
+        <div id="g_preview" class="sub" style="margin-top:10px;font-size:12px;line-height:1.6;color:var(--muted)">Drop Genius exports and/or HoneyBook payments. <b>Daily Summary</b> → raw <b>net sales</b> (one row per export's date range; replaces overlapping gross). <b>Labor Summary</b> → daily labor. <b>Transactions</b> → daily gross sales (used only if no Daily Summary in the batch). HoneyBook → catering at net of fees. Pick the location, then select files — you can select many monthly Daily Summary files at once. Re-importing the same period safely overwrites it.</div>
       </div>
 
       <!-- MANUAL ENTRY -->
@@ -633,7 +633,16 @@ function gTxnDate(s){ const m=/(\d{2})\/(\d{2})\/(\d{2})/.exec(s||''); return m?
 function gLaborDate(s){ const m=/^\w+,\s*(\w+)\s+(\d{1,2}),\s*(\d{4})/.exec((s||'').trim()); return (m&&G_MONTHS[m[1]])?`${m[3]}-${String(G_MONTHS[m[1]]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`:null; }
 const G_MON3={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
 function gHbDate(s){ const m=/^(\w{3})\w*\s+(\d{1,2}),\s*(\d{4})/.exec((s||'').trim()); return (m&&G_MON3[m[1]])?`${m[3]}-${String(G_MON3[m[1]]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`:null; }
+function monthSpan(a,b){ const [ya,ma]=a.split('-').map(Number); const [yb,mb]=b.split('-').map(Number); return (yb-ya)*12+(mb-ma)+1; }
 function processGenius(rows){
+  // Genius "Daily Summary" — key/value report. Banner row starts with SALES; the "Net Sales" line holds the raw net figure.
+  const banner=((rows[0]&&rows[0][0])||'').trim();
+  if(/^SALES\b/i.test(banner)){
+    const m=/(\d{2})-(\d{2})-(\d{4}).*?(\d{2})-(\d{2})-(\d{4})/.exec(banner);
+    let net=null;
+    for(const r of rows){ if(((r[0]||'').trim().toLowerCase())==='net sales'){ net=gMoney(r[1]); break; } }
+    if(m && net!=null) return {type:'dailysummary', start:`${m[3]}-${m[1]}-${m[2]}`, end:`${m[6]}-${m[4]}-${m[5]}`, net};
+  }
   const hi = rows.findIndex(r=>r.includes('Ticket #') || r.includes('Date/Time') || r.includes('NET_AMOUNT'));
   if(hi<0) return null;
   const hdr = rows[hi].map(x=>(x||'').trim());
@@ -667,14 +676,19 @@ function processGenius(rows){
 }
 let geniusParsed=null;
 async function onGeniusFiles(){
-  const files=[...$("g_files").files]; const acc={sales:{},labor:{},payments:[]}; const notes=[];
+  const files=[...$("g_files").files]; const acc={sales:{},labor:{},payments:[],net:[]}; const notes=[];
   for(const f of files){
     try{
       const text=await f.text();
       const rows=Papa.parse(text,{skipEmptyLines:true}).data;
       const res=processGenius(rows);
       if(!res){ notes.push(`⚠️ ${f.name}: unrecognized format`); continue; }
-      if(res.type==='honeybook'){
+      if(res.type==='dailysummary'){
+        acc.net.push({start:res.start,end:res.end,net:res.net});
+        const months=monthSpan(res.start,res.end);
+        const warn = months>1 ? ` ⚠️ spans ${months} months — export one month at a time for monthly history` : '';
+        notes.push(`✓ ${f.name}: Net sales ${res.start} → ${res.end} = $${res.net.toLocaleString('en-US',{minimumFractionDigits:2})}${warn}`);
+      } else if(res.type==='honeybook'){
         acc.payments=acc.payments.concat(res.payments);
         const tot=res.payments.reduce((a,p)=>a+p.amount,0);
         notes.push(`✓ ${f.name}: HoneyBook — ${res.payments.length} payments, $${tot.toLocaleString('en-US',{minimumFractionDigits:2})} net`);
@@ -686,13 +700,27 @@ async function onGeniusFiles(){
     }catch(e){ notes.push(`⚠️ ${f.name}: ${e.message}`); }
   }
   geniusParsed=acc;
+  if(acc.net.length && Object.keys(acc.sales).length) notes.push(`<span style="color:var(--amber)">Note: net Daily Summary present — the gross Transactions sales in this batch will be ignored (net wins).</span>`);
   $("g_preview").innerHTML=notes.join('<br>')||'No files selected.';
-  $("g_import").disabled = !(Object.keys(acc.sales).length||Object.keys(acc.labor).length||acc.payments.length);
+  $("g_import").disabled = !(Object.keys(acc.sales).length||Object.keys(acc.labor).length||acc.payments.length||acc.net.length);
 }
 async function importGenius(){
   if(!geniusParsed) return;
   const loc=$("g_loc").value; const rows=[];
-  for(const [d,v] of Object.entries(geniusParsed.sales)){
+  const hasNet = geniusParsed.net && geniusParsed.net.length;
+  // Raw NET sales from Daily Summary: one monthly row, and clear any overlapping gross daily POS sales so revenue isn't double-counted.
+  for(const n of (geniusParsed.net||[])){
+    const del = await sb.from('transactions').delete()
+      .eq('source','genius').eq('category','POS Sales').eq('location',loc)
+      .like('external_id','genius-sales:%')
+      .gte('txn_date',n.start).lte('txn_date',n.end);
+    if(del.error){ $("g_preview").innerHTML += `<br><span style="color:#dc2626">Error clearing gross for ${n.start}: ${del.error.message}</span>`; return; }
+    rows.push({source:'genius', type:'income', category:'POS Sales',
+      amount_cents:Math.round(n.net*100), txn_date:n.start, location:loc, status:'completed',
+      external_id:`genius-net:${loc}:${n.start}_${n.end}`, memo:`Genius net sales — ${loc} — ${n.start}..${n.end}`});
+  }
+  // Gross daily sales only when no net figure is being imported in this batch.
+  if(!hasNet) for(const [d,v] of Object.entries(geniusParsed.sales)){
     rows.push({source:'genius', type:v<0?'expense':'income', category:v<0?'Sales adjustments':'POS Sales',
       amount_cents:Math.round(Math.abs(v)*100), txn_date:d, location:loc, status:'completed',
       external_id:`genius-sales:${loc}:${d}`, memo:`Genius POS sales — ${loc}`});
@@ -708,12 +736,12 @@ async function importGenius(){
       external_id:p.externalId, memo:p.memo});
   }
   $("g_import").disabled=true;
-  $("g_preview").innerHTML += `<br>Importing ${rows.length} day-rows for ${loc}…`;
+  $("g_preview").innerHTML += `<br>Importing ${rows.length} rows for ${loc}…`;
   for(let i=0;i<rows.length;i+=500){
     const { error } = await sb.from('transactions').upsert(rows.slice(i,i+500), {onConflict:'source,external_id'});
     if(error){ $("g_preview").innerHTML += `<br><span style="color:#dc2626">Error: ${error.message}</span>`; return; }
   }
-  $("g_preview").innerHTML += `<br><span style="color:#16a34a">Imported ${rows.length} day-rows.</span>`;
+  $("g_preview").innerHTML += `<br><span style="color:#16a34a">Imported ${rows.length} rows.</span>`;
   geniusParsed=null; $("g_files").value='';
   load();
 }
