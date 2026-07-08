@@ -130,6 +130,7 @@
   <div class="row">
     <button id="loginBtn" class="primary">Log in</button>
     <button id="signupBtn" class="ghost">Create account</button>
+    <button id="magicBtn" class="ghost">Email me a sign-in link</button>
   </div>
   <div id="authMsg"></div>
 </div>
@@ -411,6 +412,15 @@ async function signup(){
 }
 $("loginBtn").addEventListener("click", login);
 $("signupBtn").addEventListener("click", signup);
+async function magiclink(){
+  const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Sending sign-in link…";
+  const email=$("email").value.trim();
+  if(!email){ m.style.color="#dc2626"; m.textContent="Enter your email first."; return; }
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.origin + window.location.pathname } });
+  if(error){ m.style.color="#dc2626"; m.textContent=error.message; }
+  else { m.style.color="#16a34a"; m.textContent="Check your inbox for the sign-in link."; }
+}
+$("magicBtn").addEventListener("click", magiclink);
 $("password").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
 $("logoutBtn").addEventListener("click", ()=> sb.auth.signOut());
 
