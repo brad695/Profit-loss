@@ -124,13 +124,13 @@
 <!-- LOGIN GATE (visible by default so the page is never blank) -->
 <div id="auth">
   <h1>Profit<span>Loss</span></h1>
-  <p>Sign in to view your P&amp;L. Access is limited to approved accounts.</p>
-  <input id="email" type="email" placeholder="Email" autocomplete="username" />
+  <p>Enter the manager password to view your P&amp;L.</p>
+  
   <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
   <div class="row">
     <button id="loginBtn" class="primary">Log in</button>
-    <button id="signupBtn" class="ghost">Create account</button>
-    <button id="magicBtn" class="ghost">Email me a sign-in link</button>
+    
+    
   </div>
   <div id="authMsg"></div>
 </div>
@@ -399,28 +399,15 @@ async function decide(email, status){
   loadAdmin();
 }
 $("gateLogout").addEventListener("click", ()=> sb.auth.signOut());
+const MANAGER_EMAIL = "manager@greyscheese.com";
 async function login(){
   const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Signing in…";
-  const { error } = await sb.auth.signInWithPassword({ email:$("email").value.trim(), password:$("password").value });
-  if(error){ m.style.color="#dc2626"; m.textContent=error.message; }
-}
-async function signup(){
-  const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Creating account…";
-  const { data, error } = await sb.auth.signUp({ email:$("email").value.trim(), password:$("password").value });
-  if(error){ m.style.color="#dc2626"; m.textContent=error.message; return; }
-  if(!data.session){ m.style.color="#16a34a"; m.textContent="Account created. If asked, confirm via email, then log in."; }
+  const { error } = await sb.auth.signInWithPassword({ email: MANAGER_EMAIL, password: $("password").value });
+  if(error){ m.style.color="#dc2626"; m.textContent="Incorrect password"; }
 }
 $("loginBtn").addEventListener("click", login);
-$("signupBtn").addEventListener("click", signup);
-async function magiclink(){
-  const m=$("authMsg"); m.style.color="var(--muted)"; m.textContent="Sending sign-in link…";
-  const email=$("email").value.trim();
-  if(!email){ m.style.color="#dc2626"; m.textContent="Enter your email first."; return; }
-  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.origin + window.location.pathname } });
-  if(error){ m.style.color="#dc2626"; m.textContent=error.message; }
-  else { m.style.color="#16a34a"; m.textContent="Check your inbox for the sign-in link."; }
-}
-$("magicBtn").addEventListener("click", magiclink);
+$("password").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
+$("logoutBtn").addEventListener("click", ()=> sb.auth.signOut());
 $("password").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
 $("logoutBtn").addEventListener("click", ()=> sb.auth.signOut());
 
